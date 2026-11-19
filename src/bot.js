@@ -2,6 +2,30 @@ import { env, isAdmin } from './config.js';
 import { db, upsertUser, getSetting, setSetting, getUser } from './db.js';
 import { tg, send, esc, fmt } from './telegram.js';
 import { decideTopup } from './topups.js';
+import crypto from 'node:crypto';
+
+export const tgWebhookSecret = () =>
+  crypto.createHash('sha256').update('tg-webhook:' + env.BOT_TOKEN).digest('hex').slice(0, 40);
+const tgWebhookUrl = () => `${env.PUBLIC_URL}/tg/webhook/${tgWebhookSecret()}`;
+const ALLOWED = ['message', 'callback_query'];
+
+export async function handleUpdate(u) {
+  try {
+    if (u.message) await onMessage(u.message);
+    else if (u.callback_query) await onCallback(u.callback_query);
+  } catch (e) {
+    console.error('[bot] update xatosi', e);
+  }
+}
+
+async function ensureWebhook(force = false) {
+  const info = await tg('getWebhookInfo');
+  if (info?.last_error_message) console.warn('[bot] webhook oxirgi xato:', info.last_error_message);
+  if (!force && info && info.url === tgWebhookUrl()) return;
+  const ok = await tg('setWebhook', { url: tgWebhookUrl(), secret_token: tgWebhookSecret(), allowed_updates: ALLOWED, max_connections: 40 });
+  console.log('[bot] webhook o‘rnatildi:', !!ok);
+}
+
 
 const webAppUrl = (path = '') => `${env.PUBLIC_URL}/app${path}`;
 
@@ -86,8 +110,7 @@ export async function startBot() {
     return;
   }
   const me = await tg('getMe');
-  console.log('[bot] ishga tushdi:', me?.username);
-  await tg('deleteWebhook', { drop_pending_updates: false });
+  console.log('[bot] ishga tushdi:', me?.username || '(getMe javob bermadi)');
   await tg('setMyCommands', {
     commands: [
       { command: 'start', description: 'Bosh menyu' },
@@ -95,7 +118,7 @@ export async function startBot() {
     ],
   });
   for (const id of env.ADMIN_IDS) {
-    await tg('setMyCommands', {
+    const r = await tg('setMyCommands', {
       scope: { type: 'chat', chat_id: id },
       commands: [
         { command: 'start', description: 'Bosh menyu' },
@@ -103,27 +126,33 @@ export async function startBot() {
         { command: 'balans', description: 'Balansim' },
       ],
     });
-  }
-  if (env.PUBLIC_URL.startsWith('https://')) {
-    await tg('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Menyu', web_app: { url: webAppUrl() } } });
+    if (!r) console.warn(`[bot] admin ${id} hali botga /start bosmagan (yoki ID noto‘g‘ri)`);
   }
 
+  if (env.PUBLIC_URL.startsWith('https://')) {
+    await tg('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Menyu', web_app: { url: webAppUrl() } } });
+    // Webhook: Telegram xabarlarni o'zi serverga yuboradi — osilib qoladigan polling yo'q
+    await ensureWebhook(true);
+    setInterval(() => ensureWebhook().catch(() => {}), 5 * 60 * 1000).unref();
+    return;
+  }
+
+  // Lokal: polling (har bir so'rovga qattiq vaqt chegarasi bilan)
+  await tg('deleteWebhook', { drop_pending_updates: false });
   let offset = 0;
   (async function loop() {
     for (;;) {
-      const updates = await tg('getUpdates', { offset, timeout: 50, allowed_updates: ['message', 'callback_query'] });
+      const updates = await Promise.race([
+        tg('getUpdates', { offset, timeout: 25, allowed_updates: ALLOWED }),
+        new Promise((r) => setTimeout(() => r(null), 40000)),
+      ]);
       if (!updates) {
-        await new Promise((r) => setTimeout(r, 3000));
+        await new Promise((r) => setTimeout(r, 2000));
         continue;
       }
       for (const u of updates) {
         offset = u.update_id + 1;
-        try {
-          if (u.message) await onMessage(u.message);
-          else if (u.callback_query) await onCallback(u.callback_query);
-        } catch (e) {
-          console.error('[bot] update xatosi', e);
-        }
+        await handleUpdate(u);
       }
     }
   })();

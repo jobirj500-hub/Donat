@@ -7,7 +7,7 @@ import * as d24 from './src/d24.js';
 import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
 import { createTopup, decideTopup } from './src/topups.js';
-import { startBot, broadcast } from './src/bot.js';
+import { startBot, broadcast, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { send, esc, fmt } from './src/telegram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,6 +20,14 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/', (_req, res) => res.redirect('/app'));
 app.use('/app', express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: '5m' }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '1h' }));
+
+// Telegram webhook (bot xabarlari)
+app.post('/tg/webhook/:secret', (req, res) => {
+  if (req.params.secret !== tgWebhookSecret() || req.get('X-Telegram-Bot-Api-Secret-Token') !== tgWebhookSecret())
+    return res.status(404).end();
+  res.json({ ok: true });
+  if (req.body?.update_id) handleUpdate(req.body);
+});
 
 // Donat24 webhook (yakuniy holat)
 app.post('/d24/webhook/:secret', async (req, res) => {
