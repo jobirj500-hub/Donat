@@ -1,17 +1,24 @@
 import { env } from './config.js';
 
+// Qattiq muddat: AbortSignal ishlamay qolsa ham so'rov abadiy osilib qolmaydi
+export const deadline = (promise, ms, label) =>
+  Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error(`${label}: vaqt tugadi`)), ms).unref?.())]);
+
 const api = (m) => `https://api.telegram.org/bot${env.BOT_TOKEN}/${m}`;
 
 export async function tg(method, body = {}) {
   if (!env.BOT_TOKEN) return null;
   try {
-    const r = await fetch(api(method), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(method === 'getUpdates' ? 60000 : 20000),
-    });
-    const j = await r.json();
+    const ms = method === 'getUpdates' ? 60000 : 20000;
+    const j = await deadline((async () => {
+      const r = await fetch(api(method), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(ms),
+      });
+      return r.json();
+    })(), ms + 5000, method);
     if (!j.ok) console.warn(`[tg] ${method} xato:`, j.description);
     return j.ok ? j.result : null;
   } catch (e) {
@@ -32,8 +39,10 @@ export async function sendPhotoBuffer(chatId, buffer, mime, caption, reply_marku
   }
   if (reply_markup) fd.append('reply_markup', JSON.stringify(reply_markup));
   try {
-    const r = await fetch(api('sendPhoto'), { method: 'POST', body: fd, signal: AbortSignal.timeout(30000) });
-    const j = await r.json();
+    const j = await deadline((async () => {
+      const r = await fetch(api('sendPhoto'), { method: 'POST', body: fd, signal: AbortSignal.timeout(30000) });
+      return r.json();
+    })(), 35000, 'sendPhoto');
     if (!j.ok) console.warn('[tg] sendPhoto xato:', j.description);
     return j.ok ? j.result : null;
   } catch (e) {

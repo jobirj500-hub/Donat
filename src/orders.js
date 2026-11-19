@@ -174,7 +174,14 @@ export function startPoller() {
           "select id from orders where status in ('new','paid','sending','unknown') and created_at > datetime('now','-3 days') order by id limit 40",
         )
         .all();
-      for (const r of rows) await refreshOrder(r.id);
+      for (const r of rows) {
+        // bitta buyurtma osilib qolsa ham kuzatuv to'xtab qolmasin
+        await Promise.race([refreshOrder(r.id), new Promise((ok) => setTimeout(ok, 60000))]).catch((e) =>
+          console.warn('[poller]', r.id, e.message),
+        );
+      }
+    } catch (e) {
+      console.warn('[poller]', e.message);
     } finally {
       polling = false;
     }
