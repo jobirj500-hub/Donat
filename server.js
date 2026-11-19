@@ -6,7 +6,7 @@ import { db, upsertUser, getUser, allSettings, setSetting, changeBalance, allOve
 import * as d24 from './src/d24.js';
 import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
-import { createTopup, decideTopup } from './src/topups.js';
+import { createTopup, decideTopup, receiptFile } from './src/topups.js';
 import { startBot, broadcast, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { send, esc, fmt } from './src/telegram.js';
 
@@ -201,6 +201,11 @@ ad.get('/topups', wrap(async (req, res) => {
   const rows = db.prepare('select t.*, u.first_name, u.username from topups t left join users u on u.id=t.user_id where t.status=? order by t.id desc limit 100').all(status);
   res.json({ ok: true, topups: rows });
 }));
+ad.get('/topups/:id/receipt', (req, res) => {
+  const f = receiptFile(Number(req.params.id));
+  if (!f) return res.status(404).json({ ok: false, error: 'Chek topilmadi', code: 'not_found' });
+  res.set('Cache-Control', 'private, max-age=3600').sendFile(path.resolve(f));
+});
 ad.post('/topups/:id/:action', wrap(async (req, res) => {
   const approve = req.params.action === 'approve';
   if (!approve && req.params.action !== 'reject') throw new AppError('Noto‘g‘ri amal');

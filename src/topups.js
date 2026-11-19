@@ -1,5 +1,18 @@
 import { db, getUser, changeBalance, getSetting, AppError } from './db.js';
 import { env } from './config.js';
+import fs from 'node:fs';
+import path from 'node:path';
+
+// Cheklar diskda saqlanadi: admin botga START bosmagan bo'lsa ham admin panelda ko'rinadi
+export const RECEIPT_DIR = path.join(env.DATA_DIR, 'receipts');
+const EXT = { 'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+export function receiptFile(id) {
+  for (const ext of ['jpg', 'png', 'webp']) {
+    const f = path.join(RECEIPT_DIR, `${id}.${ext}`);
+    if (fs.existsSync(f)) return f;
+  }
+  return null;
+}
 import { sendPhotoBuffer, send, tg, esc, fmt, userLabel } from './telegram.js';
 
 export async function createTopup(userId, amount, dataUrl) {
@@ -20,6 +33,12 @@ export async function createTopup(userId, amount, dataUrl) {
   if (pending >= 3) throw new AppError('Sizda tekshirilayotgan to‘lovlar bor, biroz kuting', 'too_many');
 
   const id = db.prepare('insert into topups(user_id,amount) values(?,?)').run(userId, amount).lastInsertRowid;
+  try {
+    fs.mkdirSync(RECEIPT_DIR, { recursive: true });
+    fs.writeFileSync(path.join(RECEIPT_DIR, `${id}.${EXT[m[1]] || 'jpg'}`), buf);
+  } catch (e) {
+    console.error('[topup] chekni saqlab bo‘lmadi', e.message);
+  }
   const caption = `💳 <b>To‘lov so‘rovi #${id}</b>\n${userLabel(user)}\nSumma: <b>${fmt(amount)}</b>\nJoriy balans: ${fmt(user.balance)}`;
   const markup = {
     inline_keyboard: [

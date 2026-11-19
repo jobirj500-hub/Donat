@@ -285,8 +285,16 @@ admin.stats = async (el) => {
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
   el.innerHTML = `<div class="chips" style="margin-top:0">${[['pending', 'Kutilmoqda'], ['approved', 'Tasdiqlangan'], ['rejected', 'Rad etilgan']].map(([k, t]) => `<button class="chip ${k === status ? 'on' : ''}" data-s="${k}">${t}</button>`).join('')}</div>
-    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">Chek rasmlari botga keladi. Bu yerda ham tasdiqlashingiz mumkin.</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
+    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-sm" data-r="${t.id}">🧾</button><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
   el.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => admin.topups(el, b.dataset.s)));
+  el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => {
+    try {
+      const r = await fetch(`/api/admin/topups/${b.dataset.r}/receipt`, { headers: { 'X-Init-Data': tg?.initData || '' } });
+      if (!r.ok) throw new Error('Chek topilmadi');
+      const url = URL.createObjectURL(await r.blob());
+      sheet(`<b>🧾 Chek #${b.dataset.r}</b><img src="${url}" style="width:100%;border-radius:12px;margin-top:10px">`);
+    } catch (e) { toast(e.message, 'bad'); }
+  }));
   el.querySelectorAll('[data-ok]').forEach((b) => (b.onclick = async () => {
     const v = prompt('Tasdiqlanadigan summa (so‘m):', b.dataset.a); if (!v) return;
     try { await api(`/admin/topups/${b.dataset.ok}/approve`, { method: 'POST', body: { amount: Number(v.replace(/\D/g, '')) } }); toast('Tasdiqlandi', 'ok'); admin.topups(el, status); } catch (e) { toast(e.message, 'bad'); }
