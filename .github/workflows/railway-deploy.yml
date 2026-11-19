@@ -1,0 +1,29 @@
+# main'ga har push qilinganda Railway'da yangi versiya o'zi ishga tushadi.
+# RAILWAY_TOKEN — Railway loyiha kaliti (GitHub → Settings → Secrets → Actions).
+name: Railway deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      SERVICE_ID: dd398ec5-a9e6-4286-9b2c-55859e1c0ec4
+      ENVIRONMENT_ID: 5b37fd33-fceb-4ed9-ab11-7c76d6cf8309
+    steps:
+      - name: Railway'da yangi versiyani ishga tushirish
+        run: |
+          body=$(jq -nc --arg s "$SERVICE_ID" --arg e "$ENVIRONMENT_ID" --arg c "$GITHUB_SHA" \
+            '{query:"mutation($s:String!,$e:String!,$c:String!){ serviceInstanceDeployV2(serviceId:$s, environmentId:$e, commitSha:$c) }",variables:{s:$s,e:$e,c:$c}}')
+          resp=$(curl -sS -X POST https://backboard.railway.com/graphql/v2 \
+            -H "Project-Access-Token: $RAILWAY_TOKEN" -H "Content-Type: application/json" -d "$body")
+          echo "$resp"
+          if echo "$resp" | grep -q '"errors"'; then exit 1; fi
