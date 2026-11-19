@@ -10,6 +10,8 @@ const tgWebhookUrl = () => `${env.PUBLIC_URL}/tg/webhook/${tgWebhookSecret()}`;
 const ALLOWED = ['message', 'callback_query'];
 
 export async function handleUpdate(u) {
+  const who = u.message?.from || u.callback_query?.from;
+  console.log(`[bot] update ${u.update_id} from ${who?.id} ${who?.username ? '@' + who.username : ''}: ${(u.message?.text || u.callback_query?.data || '(media)').slice(0, 40)}`);
   try {
     if (u.message) await onMessage(u.message);
     else if (u.callback_query) await onCallback(u.callback_query);
@@ -51,6 +53,15 @@ async function sendStart(chatId, user) {
     ? await tg('sendPhoto', { chat_id: chatId, photo, caption, parse_mode: 'HTML', reply_markup })
     : null;
   if (!sent) await send(chatId, caption, { reply_markup });
+}
+
+// START bosilmagan bo'sh chatda ko'rinadigan matn
+async function setDescriptions() {
+  const shop = getSetting('shop_name') || 'Donat';
+  await tg('setMyDescription', {
+    description: `🎮 ${shop} — o‘yinlarga tez va xavfsiz donat.\n\nPUBG UC, Free Fire olmos, Mobile Legends, Telegram Stars va Premium, 200+ o‘yin.\n\n👇 Boshlash uchun «START» tugmasini bosing.`,
+  });
+  await tg('setMyShortDescription', { short_description: `🎮 ${shop}: PUBG, Free Fire, MLBB, Telegram Stars — tez va xavfsiz donat` });
 }
 
 async function onMessage(msg) {
@@ -111,6 +122,7 @@ export async function startBot() {
   }
   const me = await tg('getMe');
   console.log('[bot] ishga tushdi:', me?.username || '(getMe javob bermadi)');
+  await setDescriptions();
   await tg('setMyCommands', {
     commands: [
       { command: 'start', description: 'Bosh menyu' },
