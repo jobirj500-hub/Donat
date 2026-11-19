@@ -10,6 +10,7 @@ import { createTopup, decideTopup, receiptFile } from './src/topups.js';
 import { startBot, broadcast, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { hamyonConfigured, autoPayEnabled, createAutoTopup, autoTopupStatus, cancelAutoTopup, activeAutoTopup, publicTopup, handleHamyonCallback, startHamyonSweeper } from './src/hamyon.js';
 import { send, esc, fmt } from './src/telegram.js';
+import { normalizeLink, LINK_KEYS } from './src/links.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -82,8 +83,8 @@ const publicSettings = () => {
     card_number: s.card_number,
     card_holder: s.card_holder,
     card_bank: s.card_bank,
-    channel_url: s.channel_url,
-    support_url: s.support_url,
+    channel_url: normalizeLink(s.channel_url),
+    support_url: normalizeLink(s.support_url),
     banner_title: s.banner_title,
     banner_subtitle: s.banner_subtitle,
     shop_open: s.shop_open === '1',
@@ -228,7 +229,15 @@ const hamyonInfo = () => ({
 });
 ad.get('/settings', wrap(async (_req, res) => res.json({ ok: true, settings: allSettings(), hamyon: hamyonInfo() })));
 ad.post('/settings', wrap(async (req, res) => {
-  for (const [k, v] of Object.entries(req.body || {})) if (SETTING_KEYS.includes(k)) setSetting(k, String(v ?? '').slice(0, 2000));
+  const body = { ...(req.body || {}) };
+  for (const k of LINK_KEYS) {
+    if (body[k] === undefined) continue;
+    const raw = String(body[k] ?? '').trim();
+    const link = normalizeLink(raw);
+    if (raw && !link) throw new AppError(`Havola noto‘g‘ri: «${raw.slice(0, 60)}». Masalan: https://t.me/username yoki @username`);
+    body[k] = link;
+  }
+  for (const [k, v] of Object.entries(body)) if (SETTING_KEYS.includes(k)) setSetting(k, String(v ?? '').slice(0, 2000));
   res.json({ ok: true, settings: allSettings() });
 }));
 

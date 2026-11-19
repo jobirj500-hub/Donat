@@ -3,6 +3,7 @@ import { db, upsertUser, getSetting, setSetting, getUser } from './db.js';
 import { tg, send, esc, fmt } from './telegram.js';
 import { decideTopup } from './topups.js';
 import crypto from 'node:crypto';
+import { normalizeLink } from './links.js';
 
 export const tgWebhookSecret = () =>
   crypto.createHash('sha256').update('tg-webhook:' + env.BOT_TOKEN).digest('hex').slice(0, 40);
@@ -36,8 +37,8 @@ function startKeyboard() {
   if (env.PUBLIC_URL.startsWith('https://'))
     rows.push([{ text: '🛒 Xaridni boshlash', web_app: { url: webAppUrl() } }]);
   const row2 = [];
-  const ch = getSetting('channel_url');
-  const sp = getSetting('support_url');
+  const ch = normalizeLink(getSetting('channel_url'));
+  const sp = normalizeLink(getSetting('support_url'));
   if (ch) row2.push({ text: 'Bizning kanal', url: ch });
   if (sp) row2.push({ text: 'Yordam', url: sp });
   if (row2.length) rows.push(row2);
@@ -52,7 +53,12 @@ async function sendStart(chatId, user) {
   const sent = photo
     ? await tg('sendPhoto', { chat_id: chatId, photo, caption, parse_mode: 'HTML', reply_markup })
     : null;
-  if (!sent) await send(chatId, caption, { reply_markup });
+  if (sent) return;
+  if (await send(chatId, caption, { reply_markup })) return;
+  // Tugmalardan biri buzuq bo'lsa ham mijoz javobsiz qolmasin
+  const safe = reply_markup.inline_keyboard.filter((row) => row.some((b) => b.web_app));
+  if (await send(chatId, caption, { reply_markup: { inline_keyboard: safe } })) return;
+  await send(chatId, caption);
 }
 
 // START bosilmagan bo'sh chatda ko'rinadigan matn
