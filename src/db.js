@@ -84,6 +84,14 @@ create index if not exists idx_tx_user on tx(user_id);
 create index if not exists idx_topups_status on topups(status);
 `);
 
+// Avto to'lov (HamyonAPI) uchun ustunlar — eski bazaga ham qo'shiladi
+{
+  const cols = new Set(db.prepare('pragma table_info(topups)').all().map((c) => c.name));
+  for (const [c, def] of [['method', "text not null default 'card'"], ['payment_id', 'text'], ['card', 'text'], ['expire_at', 'integer']])
+    if (!cols.has(c)) db.exec(`alter table topups add column ${c} ${def}`);
+  db.exec('create index if not exists idx_topups_payment on topups(payment_id)');
+}
+
 export function getSetting(key) {
   const r = db.prepare('select value from settings where key=?').get(key);
   return r ? r.value : DEFAULT_SETTINGS[key] ?? '';

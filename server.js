@@ -8,6 +8,7 @@ import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
 import { createTopup, decideTopup, receiptFile } from './src/topups.js';
 import { startBot, broadcast, handleUpdate, tgWebhookSecret } from './src/bot.js';
+import { hamyonConfigured, autoPayEnabled, createAutoTopup, autoTopupStatus, cancelAutoTopup, activeAutoTopup, publicTopup, handleHamyonCallback, startHamyonSweeper } from './src/hamyon.js';
 import { send, esc, fmt } from './src/telegram.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +28,18 @@ app.post('/tg/webhook/:secret', (req, res) => {
     return res.status(404).end();
   res.json({ ok: true });
   if (req.body?.update_id) handleUpdate(req.body);
+});
+
+// HamyonAPI callback (prepare_url va complete_url) — imzo bilan tekshiriladi
+app.post(['/hamyon/prepare', '/hamyon/complete'], express.urlencoded({ extended: false, limit: '50kb' }), async (req, res) => {
+  try {
+    const code = await handleHamyonCallback(req.body || {});
+    if (code !== 200) return res.status(code).json({ error: 'imzo' });
+    res.json({ result: 'ok' });
+  } catch (e) {
+    console.error('[hamyon] callback', e);
+    res.status(500).json({ error: 'server' }); // 2xx bo'lmasa Hamyon qayta yuboradi
+  }
 });
 
 // Donat24 webhook (yakuniy holat)
@@ -75,6 +88,7 @@ const publicSettings = () => {
     banner_subtitle: s.banner_subtitle,
     shop_open: s.shop_open === '1',
     ref_bonus: Number(s.ref_bonus) || 0,
+    auto_pay: autoPayEnabled(),
   };
 };
 
@@ -135,13 +149,30 @@ api.post('/orders', wrap(async (req, res) => {
 api.get('/orders', wrap(async (req, res) => {
   const orders = db.prepare('select * from orders where user_id=? order by id desc limit 100').all(req.user.id);
   const tx = db.prepare('select * from tx where user_id=? order by id desc limit 100').all(req.user.id);
-  const topups = db.prepare('select id,amount,status,created_at from topups where user_id=? order by id desc limit 30').all(req.user.id);
+  const topups = db.prepare('select id,amount,status,method,created_at from topups where user_id=? order by id desc limit 30').all(req.user.id);
   res.json({ ok: true, orders, tx, topups });
 }));
 
 api.post('/topups', wrap(async (req, res) => {
   const t = await createTopup(req.user.id, req.body?.amount, req.body?.receipt);
   res.json({ ok: true, topup: t });
+}));
+
+// Avto to'lov (HamyonAPI)
+api.post('/topups/auto', wrap(async (req, res) => {
+  const t = await createAutoTopup(req.user.id, req.body?.amount);
+  res.json({ ok: true, topup: publicTopup(t) });
+}));
+api.get('/topups/auto/active', wrap(async (req, res) => {
+  res.json({ ok: true, topup: publicTopup(activeAutoTopup(req.user.id)) });
+}));
+api.get('/topups/:id/status', wrap(async (req, res) => {
+  const t = await autoTopupStatus(req.user.id, Number(req.params.id));
+  res.json({ ok: true, topup: publicTopup(t), balance: getUser(req.user.id).balance });
+}));
+api.post('/topups/:id/cancel', wrap(async (req, res) => {
+  const t = await cancelAutoTopup(req.user.id, Number(req.params.id));
+  res.json({ ok: true, topup: publicTopup(t) });
 }));
 
 api.post('/promo', wrap(async (req, res) => {
@@ -190,7 +221,12 @@ ad.get('/stats', wrap(async (_req, res) => {
   });
 }));
 
-ad.get('/settings', wrap(async (_req, res) => res.json({ ok: true, settings: allSettings() })));
+const hamyonInfo = () => ({
+  configured: hamyonConfigured(),
+  prepare_url: env.PUBLIC_URL ? `${env.PUBLIC_URL}/hamyon/prepare` : '',
+  complete_url: env.PUBLIC_URL ? `${env.PUBLIC_URL}/hamyon/complete` : '',
+});
+ad.get('/settings', wrap(async (_req, res) => res.json({ ok: true, settings: allSettings(), hamyon: hamyonInfo() })));
 ad.post('/settings', wrap(async (req, res) => {
   for (const [k, v] of Object.entries(req.body || {})) if (SETTING_KEYS.includes(k)) setSetting(k, String(v ?? '').slice(0, 2000));
   res.json({ ok: true, settings: allSettings() });
@@ -292,4 +328,5 @@ app.listen(env.PORT, () => {
   console.log(`[web] :${env.PORT}  PUBLIC_URL=${env.PUBLIC_URL || '(yo‘q)'}`);
   startBot();
   startPoller();
+  startHamyonSweeper();
 });

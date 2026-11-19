@@ -184,3 +184,14 @@ details.faq p { color: var(--muted); margin: 10px 0 0; font-size: 14px; line-hei
 .center { text-align: center; }
 .spin { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--primary); border-radius: 50%; animation: rot .8s linear infinite; margin: 40px auto; }
 @keyframes rot { to { transform: rotate(360deg); } }
+
+/* ⚡ Avto to'lov */
+.autopay .ap-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.autopay .ap-row .num { margin: 8px 0 4px; }
+.autopay .ap-amt { color: var(--gold); }
+.autopay .ap-amt span { font-size: 14px; color: var(--muted); letter-spacing: 0; }
+.ap-status { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: #0006; border: 1px solid var(--line); }
+.ap-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 0 #f59e0b88; animation: apPulse 1.4s infinite; }
+.ap-timer { font-variant-numeric: tabular-nums; font-weight: 800; }
+.ap-done b { display: block; font-size: 18px; margin-top: 6px; }
+@keyframes apPulse { 70% { box-shadow: 0 0 0 10px #f59e0b00; } 100% { box-shadow: 0 0 0 0 #f59e0b00; } }

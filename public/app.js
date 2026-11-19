@@ -163,10 +163,101 @@ function buySheet(game, p) {
 
 pages.topup = async () => {
   const { settings, user } = state.me;
-  let receipt = null;
+  const auto = !!settings.auto_pay;
   $view.innerHTML = `<div class="page-title">Balansni to‘ldirish</div>
     <div class="card balance"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div></div>
-    <div class="sec"><h3>1. Kartaga o‘tkazing</h3></div>
+    ${auto ? `<div id="autobox">${spinner()}</div>${settings.card_number ? '<button class="btn btn-ghost btn-block mt" id="showman">🧾 Chek orqali to‘ldirish</button>' : ''}<div id="manual" hidden></div>` : '<div id="manual"></div>'}
+    <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
+  if (auto) {
+    renderAuto(document.getElementById('autobox'));
+    document.getElementById('showman')?.addEventListener('click', (e) => { e.currentTarget.remove(); const m = document.getElementById('manual'); m.hidden = false; renderManual(m); });
+  } else renderManual(document.getElementById('manual'));
+  const { topups } = await api('/orders');
+  document.getElementById('mine').innerHTML = topups.length ? topups.map((t) => `<div class="li"><div class="th">${t.method === 'auto' ? '⚡' : '💳'}</div><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${date(t.created_at)}</div></div><span class="badge ${t.status}">${t.method === 'auto' && t.status === 'pending' ? 'Kutilmoqda' : t.method === 'auto' && t.status === 'rejected' ? 'Bekor qilindi' : STATUS[t.status]}</span></div>`).join('') : '<div class="hint center" style="margin:0">Hali so‘rov yo‘q</div>';
+};
+
+// ⚡ Avto to'lov (HamyonAPI): summa -> karta -> 5–30 soniyada avtomatik tasdiq
+let autoTimer = null;
+async function renderAuto(box) {
+  clearInterval(autoTimer);
+  const { settings } = state.me;
+  let active = null;
+  try { active = (await api('/topups/auto/active')).topup; } catch {}
+  if (active?.card) return renderAutoPay(box, active);
+  const quick = [10000, 20000, 50000, 100000].filter((v) => v >= settings.min_topup && v <= settings.max_topup);
+  box.innerHTML = `<div class="sec"><h3>⚡ Avto to‘lov</h3></div>
+    <div class="card">
+      <label class="field" style="margin-top:0"><span>Summa (so‘m)</span><input class="inp" id="aamt" inputmode="numeric" placeholder="Eng kam: ${num(settings.min_topup)}"></label>
+      ${quick.length ? `<div class="chips">${quick.map((v) => `<button class="chip" data-v="${v}">${num(v)}</button>`).join('')}</div>` : ''}
+      <button class="btn btn-primary btn-block mt" id="acreate">To‘lov yaratish</button>
+      <div class="hint">HUMO yoki UZCARD kartadan o‘tkazasiz — balans 5–30 soniyada o‘zi to‘ldiriladi. Chek kerak emas.</div>
+    </div>`;
+  const amt = box.querySelector('#aamt');
+  amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; box.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); };
+  box.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { amt.value = num(c.dataset.v); box.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === c)); }));
+  box.querySelector('#acreate').onclick = async (e) => {
+    const b = e.currentTarget; const amount = Number(amt.value.replace(/\D/g, ''));
+    if (!amount || amount < settings.min_topup) return toast(`Eng kam summa: ${som(settings.min_topup)}`, 'bad');
+    if (amount > settings.max_topup) return toast(`Eng ko‘p summa: ${som(settings.max_topup)}`, 'bad');
+    b.disabled = true; b.textContent = 'Yaratilmoqda…';
+    try { const { topup } = await api('/topups/auto', { method: 'POST', body: { amount } }); renderAutoPay(box, topup, amount); }
+    catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = 'To‘lov yaratish'; }
+  };
+}
+
+function renderAutoPay(box, t, asked = null) {
+  clearInterval(autoTimer);
+  const card = String(t.card || '');
+  box.innerHTML = `<div class="sec"><h3>⚡ To‘lov #${t.id}</h3></div>
+    <div class="paycard autopay" id="ap-${t.id}">
+      <div class="label">Shu kartaga o‘tkazing</div>
+      <div class="ap-row"><div class="num">${h(card)}</div><button class="btn btn-ghost btn-sm" data-copy="${h(card.replace(/\s/g, ''))}">📋</button></div>
+      <div class="label mt">Aynan shu summani o‘tkazing</div>
+      <div class="ap-row"><div class="num ap-amt">${num(t.amount)} <span>so‘m</span></div><button class="btn btn-ghost btn-sm" data-copy="${t.amount}">📋</button></div>
+      ${asked && asked !== t.amount ? `<div class="hint">Summa ${num(t.amount - asked)} so‘mga o‘zgartirildi — to‘lovingizni aniq topish uchun. Ortiqcha so‘m ham balansga tushadi.</div>` : ''}
+      <div class="hint">⚠️ Summa so‘migacha bir xil bo‘lishi shart, aks holda to‘lov topilmaydi.</div>
+      <div class="ap-status"><span class="ap-dot"></span><b id="apst">To‘lov kutilmoqda…</b><span class="grow"></span><span class="ap-timer" id="aptm">--:--</span></div>
+      <button class="btn btn-ghost btn-block mt" id="apcancel">Bekor qilish</button>
+    </div>`;
+  box.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy); toast('Nusxalandi', 'ok'); }));
+  const tm = box.querySelector('#aptm');
+  const tick = () => { const left = Math.max(0, (t.expire_at || 0) - Math.floor(Date.now() / 1000)); tm.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; if (!left) box.querySelector('#apst').textContent = 'Tekshirilmoqda…'; };
+  tick();
+  const finish = async (ok) => {
+    clearInterval(autoTimer);
+    if (ok) {
+      try { tg?.HapticFeedback?.notificationOccurred('success'); } catch {}
+      box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">✅</div><b>Balans to‘ldirildi!</b><div class="hint">+${som(t.amount)}</div></div>`;
+      await refreshMe(); setTimeout(() => { if (location.hash === '#/topup') pages.topup(); }, 1800);
+    } else {
+      box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">⌛</div><b>To‘lov yakunlanmadi</b><div class="hint">Muddati tugadi yoki bekor qilindi. Pul o‘tkazgan bo‘lsangiz, yordam bo‘limiga yozing.</div><button class="btn btn-primary btn-block mt" id="apagain">Qayta urinish</button></div>`;
+      box.querySelector('#apagain').onclick = () => renderAuto(box);
+    }
+  };
+  let n = 0;
+  autoTimer = setInterval(async () => {
+    if (!document.getElementById('ap-' + t.id)) return clearInterval(autoTimer);
+    tick();
+    if (++n % 4) return; // har 4 soniyada holat
+    try {
+      const r = await api(`/topups/${t.id}/status`);
+      if (r.topup.status === 'approved') { t.amount = r.topup.amount; finish(true); }
+      else if (r.topup.status === 'rejected') finish(false);
+    } catch {}
+  }, 1000);
+  box.querySelector('#apcancel').onclick = async (e) => {
+    if (!confirm('To‘lov bekor qilinsinmi? Pul o‘tkazgan bo‘lsangiz, bekor qilmang.')) return;
+    e.currentTarget.disabled = true;
+    try { const r = await api(`/topups/${t.id}/cancel`, { method: 'POST' }); if (r.topup.status === 'approved') finish(true); else { clearInterval(autoTimer); renderAuto(box); } }
+    catch (err) { toast(err.message, 'bad'); e.currentTarget.disabled = false; }
+  };
+}
+
+// 🧾 Karta + chek (admin qo'lda tasdiqlaydi)
+function renderManual(box) {
+  const { settings } = state.me;
+  let receipt = null;
+  box.innerHTML = `<div class="sec"><h3>1. Kartaga o‘tkazing</h3></div>
     ${settings.card_number ? `<div class="paycard"><div class="label">${h(settings.card_bank || 'Karta raqami')}</div><div class="num">${h(settings.card_number)}</div><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="hint" style="margin:0">${h(settings.card_holder)}</span><button class="btn btn-ghost btn-sm" id="copy">📋 Nusxa</button></div></div>` : '<div class="card hint">Karta raqami hali sozlanmagan. Admin bilan bog‘laning.</div>'}
     <div class="sec"><h3>2. Summa va chek</h3></div>
     <div class="card">
@@ -174,8 +265,7 @@ pages.topup = async () => {
       <label class="field"><span>To‘lov cheki (skrinshot)</span><label class="drop" id="drop"><input type="file" id="file" accept="image/*" hidden><span style="font-size:28px">📎</span><span>Rasm tanlash uchun bosing</span></label></label>
       <button class="btn btn-primary btn-block mt" id="send">Yuborish</button>
       <div class="hint">Admin chekni tekshirib, balansingizni to‘ldiradi. Odatda 5–30 daqiqa.</div>
-    </div>
-    <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
+    </div>`;
   document.getElementById('copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(settings.card_number.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); });
   const amt = document.getElementById('amt');
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; };
@@ -193,9 +283,7 @@ pages.topup = async () => {
     try { await api('/topups', { method: 'POST', body: { amount, receipt } }); toast('✅ So‘rov yuborildi! Tekshirilmoqda', 'ok'); pages.topup(); }
     catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = 'Yuborish'; }
   };
-  const { topups } = await api('/orders');
-  document.getElementById('mine').innerHTML = topups.length ? topups.map((t) => `<div class="li"><div class="th">💳</div><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${date(t.created_at)}</div></div><span class="badge ${t.status}">${STATUS[t.status]}</span></div>`).join('') : '<div class="hint center" style="margin:0">Hali so‘rov yo‘q</div>';
-};
+}
 
 function compress(file) {
   return new Promise((res, rej) => {
@@ -285,7 +373,7 @@ admin.stats = async (el) => {
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
   el.innerHTML = `<div class="chips" style="margin-top:0">${[['pending', 'Kutilmoqda'], ['approved', 'Tasdiqlangan'], ['rejected', 'Rad etilgan']].map(([k, t]) => `<button class="chip ${k === status ? 'on' : ''}" data-s="${k}">${t}</button>`).join('')}</div>
-    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-sm" data-r="${t.id}">🧾</button><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
+    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">${t.method === 'auto' ? '⚡ ' : ''}#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px">${t.method === 'auto' ? '' : `<button class="btn btn-sm" data-r="${t.id}">🧾</button>`}<button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. ⚡ — avto to‘lov (pul tushishi bilan o‘zi tasdiqlanadi). Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
   el.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => admin.topups(el, b.dataset.s)));
   el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => {
     try {
@@ -363,18 +451,20 @@ admin.promos = async (el) => {
   el.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => { if (!confirm('O‘chirilsinmi?')) return; await api('/admin/promos/' + encodeURIComponent(b.dataset.del), { method: 'DELETE' }); admin.promos(el); }));
 };
 admin.settings = async (el) => {
-  const { settings: s } = await api('/admin/settings');
+  const { settings: s, hamyon: hy } = await api('/admin/settings');
   const f = (k, label, ph = '', type = 'text') => `<label class="field"><span>${label}</span>${type === 'area' ? `<textarea class="inp" data-k="${k}" placeholder="${h(ph)}">${h(s[k])}</textarea>` : `<input class="inp" data-k="${k}" value="${h(s[k])}" placeholder="${h(ph)}" ${type === 'num' ? 'inputmode="decimal"' : ''}>`}</label>`;
   el.innerHTML = `
     <div class="card"><b>💰 Narx</b>${f('markup', 'Umumiy ustama (%) — Donat24 narxiga qo‘shiladi', '10', 'num')}${f('min_topup', 'Eng kam to‘ldirish (so‘m)', '5000', 'num')}${f('max_topup', 'Eng ko‘p to‘ldirish (so‘m)', '10000000', 'num')}${f('ref_bonus', 'Do‘st taklifi bonusi (so‘m, 0 = o‘chiq)', '0', 'num')}</div>
-    <div class="card"><b>💳 To‘lov kartasi</b>${f('card_number', 'Karta raqami', '8600 0000 0000 0000')}${f('card_holder', 'Karta egasi', 'ISM FAMILIYA')}${f('card_bank', 'Karta turi / bank', 'Humo · Uzcard')}</div>
+    <div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="grow"><b>⚡ Avto to‘lov (HamyonAPI)</b><div class="hint" style="margin:2px 0 0">${hy?.configured ? '✅ Kalitlar ulangan' : '⚠️ Railway’da HAMYON_SHOP_ID va HAMYON_SHOP_KEY qo‘shilmagan'}</div></div><label class="switch"><input type="checkbox" id="autopay" ${s.auto_pay === '1' ? 'checked' : ''}><i></i></label></div>
+      ${hy?.complete_url ? `<div class="hint">@HamyonAPIBot do‘kon sozlamalariga kiriting:<br>prepare_url: <code>${h(hy.prepare_url)}</code><br>complete_url: <code>${h(hy.complete_url)}</code></div>` : ''}</div>
+    <div class="card"><b>💳 To‘lov kartasi (chek usuli)</b>${f('card_number', 'Karta raqami', '8600 0000 0000 0000')}${f('card_holder', 'Karta egasi', 'ISM FAMILIYA')}${f('card_bank', 'Karta turi / bank', 'Humo · Uzcard')}</div>
     <div class="card"><b>🔗 Havolalar</b>${f('channel_url', 'Kanal havolasi', 'https://t.me/kanalingiz')}${f('support_url', 'Yordam (admin) havolasi', 'https://t.me/username')}</div>
     <div class="card"><b>🎨 Ko‘rinish</b>${f('shop_name', 'Do‘kon nomi', 'Donat')}${f('banner_title', 'Banner sarlavhasi')}${f('banner_subtitle', 'Banner matni')}${f('welcome_text', '/start xabari ({name} — ism)', '', 'area')}
       <div class="hint">/start rasmini almashtirish: botga rasm yuboring va izohiga <code>/setphoto</code> yozing.</div></div>
     <div class="card" style="display:flex;align-items:center;gap:12px"><div class="grow"><b>Do‘kon ochiq</b><div class="hint" style="margin:2px 0 0">O‘chirsangiz, yangi buyurtma qabul qilinmaydi</div></div><label class="switch"><input type="checkbox" id="open" ${s.shop_open === '1' ? 'checked' : ''}><i></i></label></div>
     <button class="btn btn-primary btn-block mt" id="save">💾 Saqlash</button>`;
   el.querySelector('#save').onclick = async (e) => {
-    const body = { shop_open: el.querySelector('#open').checked ? '1' : '0' };
+    const body = { shop_open: el.querySelector('#open').checked ? '1' : '0', auto_pay: el.querySelector('#autopay').checked ? '1' : '0' };
     el.querySelectorAll('[data-k]').forEach((i) => (body[i.dataset.k] = i.value.trim()));
     e.currentTarget.disabled = true;
     try { await api('/admin/settings', { method: 'POST', body }); await refreshMe(); state.games = null; toast('✅ Saqlandi', 'ok'); } catch (err) { toast(err.message, 'bad'); }
