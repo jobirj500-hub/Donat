@@ -367,8 +367,9 @@ admin.stats = async (el) => {
   const s = await api('/admin/stats');
   const st = (l, v) => `<div class="stat"><div class="label">${l}</div><b>${v}</b></div>`;
   el.innerHTML = `
-    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div><div class="hint" style="margin:0">Buyurtmalar shu balansdan to‘lanadi. Kam bo‘lsa donat24.uz da to‘ldiring.</div></div>
+    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div>${!s.d24.error && Number(s.d24.balance) < 50000 ? '<div class="hint badt" style="margin:0 0 8px">⚠️ Balans kam — buyurtmalar o‘tmay qolishi mumkin</div>' : ''}<div class="hint" style="margin:0 0 10px">Buyurtmalar shu balansdan to‘lanadi.</div><button class="btn btn-primary btn-block" id="d24top">💳 Donat24 balansini to‘ldirish</button></div>
     <div class="stats">${st('Foydalanuvchilar', num(s.users))}${st('Bugun yangi', num(s.usersToday))}${st('Kutilayotgan to‘lov', num(s.pendingTopups))}${st('Mijoz balanslari', som(s.balances))}${st('Buyurtmalar', `${num(s.ordersDelivered)} / ${num(s.ordersTotal)}`)}${st('Savdo (bugun)', som(s.revenueToday))}${st('Jami savdo', som(s.revenue))}${st('Foyda', som(s.profit))}${st('Tasdiqlangan to‘lovlar', som(s.topupsApproved))}</div>`;
+  document.getElementById('d24top').onclick = () => openLink('https://donat24.uz/balans');
 };
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
