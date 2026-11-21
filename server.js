@@ -74,6 +74,8 @@ const adminOnly = (req, res, next) =>
 const api = express.Router();
 api.use(auth);
 
+const botUsernamePromise = env.BOT_TOKEN ? import('./src/telegram.js').then(({tg})=>tg('getMe')).then(x=>x?.username||null).catch(()=>null) : Promise.resolve(null);
+
 const publicSettings = () => {
   const s = allSettings();
   return {
@@ -99,6 +101,7 @@ api.get('/me', wrap(async (req, res) => {
     ok: true,
     user: { id: u.id, username: u.username, first_name: u.first_name, last_name: u.last_name, balance: u.balance, banned: !!u.banned, photo_url: req.tgUser.photo_url || null },
     isAdmin: req.isAdmin,
+    bot_username: await botUsernamePromise,
     settings: publicSettings(),
     stats: {
       orders: db.prepare('select count(*) c from orders where user_id=?').get(u.id).c,
@@ -193,7 +196,7 @@ api.post('/promo', wrap(async (req, res) => {
 
 api.get('/top', wrap(async (_req, res) => {
   const rows = db
-    .prepare("select u.first_name, u.username, sum(o.price) total from orders o join users u on u.id=o.user_id where o.status='delivered' group by o.user_id order by total desc limit 100")
+    .prepare("select u.first_name, u.username, sum(o.price) total from orders o join users u on u.id=o.user_id where o.status='delivered'group by o.user_id order by total desc limit 100")
     .all();
   res.json({ ok: true, top: rows.map((r) => ({ name: r.first_name || r.username || 'Foydalanuvchi', total: r.total })) });
 }));
@@ -216,7 +219,7 @@ ad.get('/stats', wrap(async (_req, res) => {
     ordersDelivered: one("select count(*) c from orders where status='delivered'").c,
     revenue: one("select coalesce(sum(price),0) s from orders where status='delivered'").s,
     profit: one("select coalesce(sum(price-cost),0) s from orders where status='delivered'").s,
-    revenueToday: one("select coalesce(sum(price),0) s from orders where status='delivered' and created_at > datetime('now','-1 day')").s,
+    revenueToday: one("select coalesce(sum(price),0) s from orders where status='delivered'and created_at > datetime('now','-1 day')").s,
     topupsApproved: one("select coalesce(sum(amount),0) s from topups where status='approved'").s,
     d24: d24me?.error ? { error: d24me.error } : { balance: d24me?.wallet?.balance ?? null, name: d24me?.user?.name },
   });
@@ -270,7 +273,7 @@ ad.post('/users/:id/balance', wrap(async (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   const balance = changeBalance(id, amount, 'admin', String(req.user.id), String(req.body?.note || 'Admin tomonidan'));
   if (req.body?.notify !== false)
-    await send(id, `${amount > 0 ? '💰 Balansingizga qo‘shildi' : '➖ Balansingizdan yechildi'}: <b>${fmt(Math.abs(amount))}</b>\nJoriy balans: <b>${fmt(balance)}</b>`);
+    await send(id, `${amount > 0 ? 'Balansingizga qo‘shildi' : 'Balansingizdan yechildi'}: <b>${fmt(Math.abs(amount))}</b>\nJoriy balans: <b>${fmt(balance)}</b>`);
   res.json({ ok: true, balance });
 }));
 ad.post('/users/:id/ban', wrap(async (req, res) => {
@@ -326,7 +329,7 @@ ad.delete('/promos/:code', wrap(async (req, res) => {
 ad.post('/broadcast', wrap(async (req, res) => {
   const text = String(req.body?.text || '').trim();
   if (!text) throw new AppError('Xabar matnini kiriting');
-  broadcast(esc(text)).then((r) => send(req.user.id, `📣 Xabar yuborildi: ${r.ok}/${r.total}`));
+  broadcast(esc(text)).then((r) => send(req.user.id, `Xabar yuborildi: ${r.ok}/${r.total}`));
   res.json({ ok: true });
 }));
 

@@ -6,13 +6,13 @@ import { env } from './config.js';
 import crypto from 'node:crypto';
 
 export const STATUS_UZ = {
-  new: '⏳ Yuborilmoqda',
-  paid: '⏳ To‘landi',
-  sending: '🚚 Yetkazilmoqda',
-  delivered: '✅ Yetkazildi',
-  failed: '❌ Bajarilmadi',
-  refunded: '↩️ Pul qaytarildi',
-  unknown: '⚠️ Tekshirilmoqda',
+  new: 'Yuborilmoqda',
+  paid: 'To‘landi',
+  sending: 'Yetkazilmoqda',
+  delivered: 'Yetkazildi',
+  failed: 'Bajarilmadi',
+  refunded: 'Pul qaytarildi',
+  unknown: 'Tekshirilmoqda',
 };
 
 export const webhookSecret = () =>
@@ -26,7 +26,10 @@ export function priceProducts(slug, products) {
 
 const getOrder = (id) => db.prepare('select * from orders where id=?').get(id);
 
-export async function placeOrder(userId, { slug, product_id, player_id, server_id }) {
+export async function placeOrder(userId, { slug, product_id, player_id, server_id, request_key, max_price }) {
+  if(request_key!==undefined && (typeof request_key!=='string'||!/^[a-zA-Z0-9-]{16,80}$/.test(request_key)))throw new AppError('So‘rovni yangilang va qayta urinib ko‘ring','bad_request');
+  if(max_price!==undefined && (!Number.isFinite(max_price)||max_price<=0))throw new AppError('Narxni yangilang','bad_price');
+  if(request_key){const old=db.prepare('select * from orders where user_id=? and request_key=?').get(userId,request_key);if(old)return old;}
   if (getSetting('shop_open') !== '1') throw new AppError('Do‘kon vaqtincha yopiq', 'closed', 503);
   const user = getUser(userId);
   if (!user) throw new AppError('Foydalanuvchi topilmadi', 'no_user', 404);
@@ -46,21 +49,24 @@ export async function placeOrder(userId, { slug, product_id, player_id, server_i
   const [priced] = priceProducts(slug, [prod]);
   const price = priced.price;
 
-  const orderId = db.transaction(() => {
+  if(max_price!==undefined && price>max_price)throw new AppError('Paket narxi o‘zgardi. Paketni qayta tanlang; mablag‘ yechilmadi.','price_changed',409);
+  const result = db.transaction(() => {
+    if(request_key){const old=db.prepare('select id from orders where user_id=? and request_key=?').get(userId,request_key);if(old)return {id:old.id,created:false};}
     const info = db
       .prepare(
-        `insert into orders(user_id,game_slug,game_name,game_image,product_id,product_name,player_id,server_id,price,cost,status)
-         values(?,?,?,?,?,?,?,?,?,?, 'new')`,
+        `insert into orders(user_id,game_slug,game_name,game_image,product_id,product_name,player_id,server_id,price,cost,status,request_key)
+         values(?,?,?,?,?,?,?,?,?,?, 'new',?)`,
       )
-      .run(userId, slug, game.name, game.image_url, prod.id, prod.name, player_id, server_id, price, prod.price_uzs);
+      .run(userId, slug, game.name, game.image_url, prod.id, prod.name, player_id, server_id, price, prod.price_uzs, request_key || null);
     changeBalance(userId, -price, 'order', 'O' + info.lastInsertRowid, `${game.name} — ${prod.name}`);
-    return info.lastInsertRowid;
+    return {id:info.lastInsertRowid,created:true};
   })();
-
+  const orderId=result.id;
+  if(!result.created)return getOrder(orderId);
   await submitToD24(orderId);
   const order = getOrder(orderId);
   notifyAdmins(
-    `🛒 <b>Yangi buyurtma #${order.id}</b>\n${userLabel(user)}\n🎮 ${esc(order.game_name)} — ${esc(order.product_name)}\n🆔 <code>${esc(order.player_id)}</code>${order.server_id ? ' / ' + esc(order.server_id) : ''}\n💰 ${fmt(order.price)} (tannarx ${fmt(order.cost)})\nHolat: ${STATUS_UZ[order.status] || order.status}${order.error ? '\n⚠️ ' + esc(order.error) : ''}`,
+    `<b>Yangi buyurtma #${order.id}</b>\n${userLabel(user)}\nO‘yin: ${esc(order.game_name)} — ${esc(order.product_name)}\nO‘yinchi ID: <code>${esc(order.player_id)}</code>${order.server_id ? ' / ' + esc(order.server_id) : ''}\nSumma: ${fmt(order.price)} (tannarx ${fmt(order.cost)})\nHolat: ${STATUS_UZ[order.status] || order.status}${order.error ? '\nIzoh: ' + esc(order.error) : ''}`,
   );
   return order;
 }
@@ -97,7 +103,7 @@ async function submitToD24(orderId) {
       e.code === 'insufficient_balance' ? 'Texnik sabab: yetkazib beruvchi balansi yetarli emas' : e.message;
     await refund(o.id, userMsg);
     if (e.code === 'insufficient_balance')
-      notifyAdmins('⚠️ <b>Donat24 balansingiz yetarli emas!</b> Buyurtmalar bajarilmayapti — Donat24 hisobini to‘ldiring.');
+      notifyAdmins('<b>Donat24 balansi yetarli emas.</b> Buyurtmalar bajarilmayapti — Donat24 hisobini to‘ldiring.');
   }
 }
 
@@ -115,7 +121,7 @@ async function refund(orderId, reason) {
   if (did)
     await send(
       did.user_id,
-      `↩️ <b>Buyurtma #${did.id} bajarilmadi</b>\n${esc(did.game_name)} — ${esc(did.product_name)}\n${fmt(did.price)} balansingizga qaytarildi.${reason ? '\nSabab: ' + esc(reason) : ''}`,
+      `<b>Buyurtma #${did.id} bajarilmadi</b>\n${esc(did.game_name)} — ${esc(did.product_name)}\n${fmt(did.price)} balansingizga qaytarildi.${reason ? '\nSabab: ' + esc(reason) : ''}`,
     );
 }
 
@@ -129,7 +135,7 @@ export async function applyStatus(orderId, remote) {
     db.prepare("update orders set status='delivered', error=null, updated_at=datetime('now') where id=?").run(o.id);
     await send(
       o.user_id,
-      `✅ <b>Buyurtma #${o.id} yetkazildi!</b>\n🎮 ${esc(o.game_name)} — ${esc(o.product_name)}\n🆔 <code>${esc(o.player_id)}</code>\nXaridingiz uchun rahmat!`,
+      `<b>Buyurtma #${o.id} yetkazildi</b>\nO‘yin: ${esc(o.game_name)} — ${esc(o.product_name)}\nO‘yinchi ID: <code>${esc(o.player_id)}</code>\nO‘yin hisobingizni tekshirishingiz mumkin. Xaridingiz uchun rahmat.`,
     );
     return;
   }

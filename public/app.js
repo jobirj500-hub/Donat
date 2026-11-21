@@ -1,10 +1,24 @@
+import {topupNeeded, validDraft, canResume, orderBody} from './checkout.js?v=gold3';
+import './premium.js?v=gold3';
 const tg = window.Telegram?.WebApp;
-try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#080b17'); tg?.setBackgroundColor?.('#080b17'); } catch {}
+try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#ffffff'); tg?.setBackgroundColor?.('#ffffff'); } catch {}
 
 const $view = document.getElementById('view');
 const $nav = document.getElementById('nav');
 const $sheet = document.getElementById('sheet-root');
-const state = { me: null, games: null };
+const state = { me: null, games: null, checkout: null };
+let checkoutTimer=null, checkoutBusy=false;
+const draftKey=()=> 'donat-checkout:'+state.me.user.id;
+function saveDraft(d){state.checkout=d;try{d?sessionStorage.setItem(draftKey(),JSON.stringify(d)):sessionStorage.removeItem(draftKey());}catch{}}
+function readDraft(){try{const d=JSON.parse(sessionStorage.getItem(draftKey())||'null');if(validDraft(d,state.me.user.id))state.checkout=d;else saveDraft(null);}catch{saveDraft(null);}}
+async function resumeCheckout(){
+  const d=state.checkout;if(checkoutBusy||!canResume(d,state.me.user.balance,state.me.user.id))return false;
+  checkoutBusy=true;
+  try{const r=await api('/orders',{method:'POST',body:orderBody(d)});state.me.user.balance=r.balance;saveDraft(null);closeSheet();toast(r.order.status==='refunded'?'Buyurtma bajarilmadi. Mablag‘ balansingizga qaytarildi.':'Buyurtma qabul qilindi. Holati buyurtmalarda ko‘rinadi.',r.order.status==='refunded'?'bad':'ok');go('#/orders');return true;}
+  catch(e){if(!['no_balance'].includes(e.code)){saveDraft(null);toast(e.message||'Xarid yakunlanmadi. Buyurtmalarni tekshiring.','bad');}return false;}
+  finally{checkoutBusy=false;}
+}
+
 
 // ---------- helpers ----------
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -50,13 +64,14 @@ function sheet(html) {
   return $sheet.querySelector('.sheet');
 }
 const closeSheet = () => { $sheet.innerHTML = ''; };
+function cancelDraft(){saveDraft(null);clearInterval(checkoutTimer);pages.topup();}
 
 // ---------- shared blocks ----------
 function balanceCard() {
   return `<div class="card balance"><div class="ic">💰</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div>`;
 }
 function gameTile(g) {
-  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? '<span class="hot">★ Top</span>' : ''}</div><span>${h(g.name)}</span></a>`;
+  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? '<span class="hot">TOP</span>' : ''}</div><span>${h(g.name)}</span></a>`;
 }
 const skelGrid = (n = 8) => `<div class="grid">${Array.from({ length: n }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>`;
 async function loadGames() { if (!state.games) state.games = (await api('/games')).games; return state.games; }
@@ -69,11 +84,11 @@ pages.home = async () => {
   const { user, settings } = state.me;
   const name = user.first_name || user.username || 'do‘st';
   $view.innerHTML = `
-    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div></div>
+    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Xush kelibsiz</small><b>${h(name)}</b></div></div>
     ${balanceCard()}
     <div class="row2"><a class="tile" href="#/profile"><span class="e">🎟️</span>Promokodlar</a><button class="tile" id="help"><span class="e">🎧</span>Yordam</button></div>
     ${settings.shop_open ? '' : '<div class="card mt badt">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
-    <div class="banner"><h2>${h(settings.banner_title)}</h2><p>${h(settings.banner_subtitle)}</p><img src="/logo.jpg" alt=""></div>
+    <div class="banner"><h2>${h(settings.banner_title)}</h2><p>${h(settings.banner_subtitle)}</p><img src="/media/loot.webp" alt="Oltin olmoslar"></div>
     <div class="sec"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
     <div id="pop">${skelGrid(8)}</div>
     <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">🏆</span><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
@@ -128,9 +143,9 @@ function buySheet(game, p) {
     <label class="field"><span>${isTg ? 'Telegram username' : 'O‘yinchi ID'}</span>
       <div class="inline"><input class="inp" id="pid" placeholder="${isTg ? '@username' : 'Masalan: 5123456789'}" ${isTg ? '' : 'inputmode="numeric"'} autocomplete="off"><button class="btn btn-ghost btn-sm" id="chk">Tekshirish</button></div></label>
     ${game.needs_server_id ? '<label class="field"><span>Server (Zone) ID</span><input class="inp" id="sid" inputmode="numeric" placeholder="Masalan: 1234"></label>' : ''}
-    <div class="hint" id="vres">ID ni diqqat bilan kiriting — noto‘g‘ri ID ga yuborilgan buyurtma qaytarilmaydi.</div>
+    <div class="hint" id="vres">ID ni tekshiring. Tekshirish ixtiyoriy; yetkazilgan buyurtmani bekor qilib bo‘lmaydi.</div>
     <div class="card mt"><div class="sumrow"><span>Narx</span><b>${som(p.price)}</b></div><div class="sumrow"><span>Balansingiz</span><b>${som(state.me.user.balance)}</b></div></div>
-    <button class="btn btn-primary btn-block mt" id="buy">Sotib olish — ${som(p.price)}</button>`);
+    <button class="btn btn-primary btn-block mt" id="buy">${state.me.user.balance < p.price ? "To‘ldirish va xarid qilish" : "Xarid qilish"} — ${som(p.price)}</button>`);
   const pid = s.querySelector('#pid'); const sid = s.querySelector('#sid'); const vres = s.querySelector('#vres');
   setTimeout(() => pid.focus(), 250);
   s.querySelector('#chk').onclick = async (e) => {
@@ -148,26 +163,32 @@ function buySheet(game, p) {
     const b = e.currentTarget;
     if (!pid.value.trim()) return toast('ID ni kiriting', 'bad');
     if (game.needs_server_id && !sid.value.trim()) return toast('Server ID ni kiriting', 'bad');
-    if (state.me.user.balance < p.price) { toast('Balans yetarli emas', 'bad'); closeSheet(); return go('#/topup'); }
+    saveDraft({game,p,player_id:pid.value.trim(),server_id:sid?.value.trim()||'',request_key:crypto.randomUUID(),createdAt:Date.now(),user_id:state.me.user.id});
+    if(state.me.user.balance<p.price){closeSheet();toast('Tanlovingiz saqlandi. Balans to‘ldirilgach shu xarid avtomatik davom etadi.');return go('#/topup');}
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
     try {
-      const r = await api('/orders', { method: 'POST', body: { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() } });
+      const r = await api('/orders', { method: 'POST', body: orderBody(state.checkout) });
       state.me.user.balance = r.balance;
+      saveDraft(null);
       closeSheet();
       if (r.order.status === 'refunded') toast('Buyurtma bajarilmadi, pul qaytarildi', 'bad');
       else toast('✅ Buyurtma qabul qilindi!', 'ok');
       go('#/orders');
-    } catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = `Sotib olish — ${som(p.price)}`; }
+    } catch (err) { saveDraft(null); toast(err.message, 'bad'); b.disabled = false; b.textContent = `Xarid qilish — ${som(p.price)}`; }
   };
 }
 
 pages.topup = async () => {
+  await refreshMe();
   const { settings, user } = state.me;
   const auto = !!settings.auto_pay;
-  $view.innerHTML = `<div class="page-title">Balansni to‘ldirish</div>
+  $view.innerHTML = `<div class="page-title">Balansni to‘ldirish</div>${state.checkout ? `<div class="resume"><b>${h(state.checkout.game.name)} · ${h(state.checkout.p.name)}</b>ID: ${h(state.checkout.player_id)} · ${som(state.checkout.p.price)}<br>Balans to‘ldirilgach shu xarid avtomatik yuboriladi.<br><button id="cancel-draft">Avtomatik xaridni bekor qilish</button></div>` : ""}
     <div class="card balance"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div></div>
     ${auto ? `<div id="autobox">${spinner()}</div>${settings.card_number ? '<button class="btn btn-ghost btn-block mt" id="showman">🧾 Chek orqali to‘ldirish</button>' : ''}<div id="manual" hidden></div>` : '<div id="manual"></div>'}
     <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
+  document.getElementById('cancel-draft')?.addEventListener('click',cancelDraft);
+  clearInterval(checkoutTimer);
+  if(state.checkout)checkoutTimer=setInterval(async()=>{try{await refreshMe();await resumeCheckout();}catch{}},5000);
   if (auto) {
     renderAuto(document.getElementById('autobox'));
     document.getElementById('showman')?.addEventListener('click', (e) => { e.currentTarget.remove(); const m = document.getElementById('manual'); m.hidden = false; renderManual(m); });
@@ -193,6 +214,7 @@ async function renderAuto(box) {
       <div class="hint">HUMO yoki UZCARD kartadan o‘tkazasiz — balans 5–30 soniyada o‘zi to‘ldiriladi. Chek kerak emas.</div>
     </div>`;
   const amt = box.querySelector('#aamt');
+  if(state.checkout)amt.value=num(topupNeeded(state.checkout.p.price,state.me.user.balance,settings.min_topup,settings.max_topup));
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; box.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); };
   box.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { amt.value = num(c.dataset.v); box.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === c)); }));
   box.querySelector('#acreate').onclick = async (e) => {
@@ -228,7 +250,7 @@ function renderAutoPay(box, t, asked = null) {
     if (ok) {
       try { tg?.HapticFeedback?.notificationOccurred('success'); } catch {}
       box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">✅</div><b>Balans to‘ldirildi!</b><div class="hint">+${som(t.amount)}</div></div>`;
-      await refreshMe(); setTimeout(() => { if (location.hash === '#/topup') pages.topup(); }, 1800);
+      await refreshMe(); if(await resumeCheckout())return; setTimeout(() => { if (location.hash === '#/topup') pages.topup(); }, 1800);
     } else {
       box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">⌛</div><b>To‘lov yakunlanmadi</b><div class="hint">Muddati tugadi yoki bekor qilindi. Pul o‘tkazgan bo‘lsangiz, yordam bo‘limiga yozing.</div><button class="btn btn-primary btn-block mt" id="apagain">Qayta urinish</button></div>`;
       box.querySelector('#apagain').onclick = () => renderAuto(box);
@@ -268,16 +290,17 @@ function renderManual(box) {
     </div>`;
   document.getElementById('copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(settings.card_number.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); });
   const amt = document.getElementById('amt');
+  if(state.checkout)amt.value=num(topupNeeded(state.checkout.p.price,state.me.user.balance,settings.min_topup,settings.max_topup));
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; };
   document.getElementById('file').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     receipt = await compress(f);
-    document.getElementById('drop').innerHTML = `<img src="${receipt}"><span>Boshqa rasm tanlash</span><input type="file" id="file2" accept="image/*" hidden>`;
-    document.getElementById('drop').onclick = () => document.getElementById('file').click();
+    const drop=document.getElementById('drop'); drop.querySelectorAll('img,span').forEach(n=>n.remove()); const preview=document.createElement('img');preview.src=receipt;drop.append(preview);const label=document.createElement('span');label.textContent='Boshqa chek tanlash';drop.append(label);
   };
   document.getElementById('send').onclick = async (e) => {
     const b = e.currentTarget; const amount = Number(amt.value.replace(/\D/g, ''));
     if (!amount || amount < settings.min_topup) return toast(`Eng kam summa: ${som(settings.min_topup)}`, 'bad');
+    if (amount > settings.max_topup) return toast(`Eng ko‘p summa: ${som(settings.max_topup)}`, 'bad');
     if (!receipt) return toast('Chek rasmini yuklang', 'bad');
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
     try { await api('/topups', { method: 'POST', body: { amount, receipt } }); toast('✅ So‘rov yuborildi! Tekshirilmoqda', 'ok'); pages.topup(); }
@@ -312,7 +335,7 @@ pages.orders = async () => {
 pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
-  const bot = tg?.initDataUnsafe?.receiver?.username;
+  const bot = state.me.bot_username;
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
     ['Buyurtmam o‘yinga tushmadi. Qancha kutaman?', 'Ko‘pincha 1–5 daqiqa. Ba’zi o‘yinlarda biroz ko‘proq vaqt ketishi mumkin. Bajarilmasa pul avtomatik balansingizga qaytadi.'],
@@ -479,6 +502,7 @@ admin.broadcast = async (el) => {
 
 // ---------- router ----------
 async function route() {
+  clearInterval(checkoutTimer);clearInterval(autoTimer);
   closeSheet();
   const hash = location.hash || '#/';
   const [, page = '', arg = ''] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
@@ -498,7 +522,7 @@ try { tg?.BackButton?.onClick(() => history.back()); } catch {}
 
 (async function boot() {
   $view.innerHTML = spinner();
-  try { await refreshMe(); }
+  try { await refreshMe(); readDraft(); }
   catch (e) {
     $nav.innerHTML = '';
     $view.innerHTML = `<div class="empty" style="padding-top:90px"><img src="/logo.jpg" style="width:120px;border-radius:28px;margin:0 auto 20px"><b>${e.code === 'auth' ? 'Telegram orqali oching' : 'Xatolik'}</b>${h(e.message)}</div>`;

@@ -1,3 +1,4 @@
+import {cleanPayload,cleanText} from './message-text.js';
 import { env } from './config.js';
 
 // Qattiq muddat: AbortSignal ishlamay qolsa ham so'rov abadiy osilib qolmaydi
@@ -14,7 +15,7 @@ export async function tg(method, body = {}) {
       const r = await fetch(api(method), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(cleanPayload(body)),
         signal: AbortSignal.timeout(ms),
       });
       return r.json();
@@ -34,10 +35,10 @@ export async function sendPhotoBuffer(chatId, buffer, mime, caption, reply_marku
   fd.append('chat_id', String(chatId));
   fd.append('photo', new Blob([buffer], { type: mime || 'image/jpeg' }), 'chek.jpg');
   if (caption) {
-    fd.append('caption', caption);
+    fd.append('caption', cleanText(caption));
     fd.append('parse_mode', 'HTML');
   }
-  if (reply_markup) fd.append('reply_markup', JSON.stringify(reply_markup));
+  if (reply_markup) fd.append('reply_markup', JSON.stringify(cleanPayload({reply_markup}).reply_markup));
   try {
     const j = await deadline((async () => {
       const r = await fetch(api('sendPhoto'), { method: 'POST', body: fd, signal: AbortSignal.timeout(30000) });

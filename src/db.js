@@ -92,6 +92,8 @@ create index if not exists idx_topups_status on topups(status);
   db.exec('create index if not exists idx_topups_payment on topups(payment_id)');
 }
 
+{const cols=new Set(db.prepare('pragma table_info(orders)').all().map(c=>c.name));if(!cols.has('request_key'))db.exec('alter table orders add column request_key text');db.exec('create unique index if not exists idx_orders_request on orders(user_id,request_key) where request_key is not null');}
+
 export function getSetting(key) {
   const r = db.prepare('select value from settings where key=?').get(key);
   return r ? r.value : DEFAULT_SETTINGS[key] ?? '';

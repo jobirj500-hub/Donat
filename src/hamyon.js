@@ -37,7 +37,7 @@ async function call(method, p, params) {
 
 const byId = (id) => db.prepare('select * from topups where id=?').get(id);
 const openAuto = (userId) =>
-  db.prepare("select * from topups where user_id=? and method='auto' and status='pending' order by id desc limit 1").get(userId);
+  db.prepare("select * from topups where user_id=? and method='auto'and status='pending'order by id desc limit 1").get(userId);
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 export const publicTopup = (t) =>
@@ -66,7 +66,7 @@ export async function createAutoTopup(userId, rawAmount) {
     }
   }
 
-  const busy = new Set(db.prepare("select amount from topups where method='auto' and status='pending'").all().map((r) => r.amount));
+  const busy = new Set(db.prepare("select amount from topups where method='auto'and status='pending'").all().map((r) => r.amount));
   let amt = freeAmount(amount, busy);
   if (amt === null) throw new AppError('Hozir to‘lovlar ko‘p, birozdan so‘ng urinib ko‘ring', 'busy');
   const id = db.prepare("insert into topups(user_id,amount,method) values(?,?,'auto')").run(userId, amt).lastInsertRowid;
@@ -100,12 +100,12 @@ export async function createAutoTopup(userId, rawAmount) {
 async function markPaid(t, paymentId) {
   if (!t.payment_id && paymentId) db.prepare('update topups set payment_id=? where id=?').run(String(paymentId), t.id);
   // Pul tushgan — oldin muddati tugagan deb yopilgan bo'lsa ham qabul qilamiz
-  if (t.status === 'rejected') db.prepare("update topups set status='pending' where id=? and status='rejected' and method='auto'").run(t.id);
+  if (t.status === 'rejected') db.prepare("update topups set status='pending'where id=? and status='rejected'and method='auto'").run(t.id);
   const res = await decideTopup(t.id, true, 'hamyon');
   if (!res.already) {
     const u = getUser(t.user_id);
     for (const admin of env.ADMIN_IDS)
-      await send(admin, `⚡ <b>Avto to‘lov #${t.id}</b>\n${userLabel(u || { id: t.user_id })}\nSumma: <b>+${fmt(res.t.amount)}</b>`);
+      await send(admin, `<b>Avto to‘lov #${t.id}</b>\n${userLabel(u || { id: t.user_id })}\nSumma: <b>+${fmt(res.t.amount)}</b>`);
   }
   return res;
 }
@@ -115,7 +115,7 @@ async function markCancelled(t, reason) {
     .prepare("update topups set status='rejected', admin_note=?, decided_at=datetime('now') where id=? and status='pending'")
     .run('hamyon:' + String(reason || 'cancel').slice(0, 40), t.id);
   if (ch.changes)
-    await send(t.user_id, `⌛ <b>To‘lov #${t.id} muddati tugadi.</b>\nAgar pul o‘tkazgan bo‘lsangiz, yordam bo‘limiga yozing.`);
+    await send(t.user_id, `<b>To‘lov #${t.id} muddati tugadi.</b>\nAgar pul o‘tkazgan bo‘lsangiz, yordam bo‘limiga yozing.`);
 }
 
 // Callback kelmagan bo'lsa — holatni o'zimiz so'raymiz
@@ -184,7 +184,7 @@ export function startHamyonSweeper() {
   if (!hamyonConfigured()) return;
   const tick = async () => {
     const rows = db
-      .prepare("select * from topups where method='auto' and status='pending' and expire_at is not null and expire_at < ?")
+      .prepare("select * from topups where method='auto'and status='pending'and expire_at is not null and expire_at < ?")
       .all(nowSec() - 120);
     for (const t of rows) await reconcile(t);
   };
