@@ -15,10 +15,6 @@ export const env = {
   // Faqat lokal sinov uchun: initData'siz shu ID bilan kirish. Railway'da qo'ymang.
   DEV_AUTH_USER: process.env.DEV_AUTH_USER ? Number(process.env.DEV_AUTH_USER) : null,
   DISABLE_BOT: process.env.DISABLE_BOT === '1',
-  // HamyonAPI avto to'lov (@HamyonAPIBot beradi)
-  HAMYON_SHOP_ID: (process.env.HAMYON_SHOP_ID || '').trim(),
-  HAMYON_SHOP_KEY: (process.env.HAMYON_SHOP_KEY || '').trim(),
-  HAMYON_BASE: (process.env.HAMYON_BASE || 'https://hamyon-api.uz').replace(/\/$/, ''),
 };
 
 // Admin panelidan o'zgartiriladigan sozlamalar (standart qiymatlar)
@@ -32,15 +28,15 @@ export const DEFAULT_SETTINGS = {
   card_bank: '',
   channel_url: '',
   support_url: '',
-  welcome_text: 'Xush kelibsiz, {name}! \nO‘yinlarga tez va xavfsiz donat qilish uchun «Xaridni boshlash» tugmasini bosing.',
-  banner_title: 'DONAT',
-  banner_subtitle: 'Free Fire olmoslari, PUBG UC va sevimli o‘yinlaringiz uchun donat',
+  welcome_text: 'Xush kelibsiz, {name}! 👋\nO‘yinlarga tez va xavfsiz donat qilish uchun «Xaridni boshlash» tugmasini bosing.',
+  banner_title: 'O‘yinlarga donat — rasmiy va tezkor',
+  banner_subtitle: 'Tez yetkazish • 100% xavfsiz • 24/7 yordam',
   welcome_photo: '',
   shop_open: '1',
   ref_bonus: '0',
-  auto_pay: '1',
 };
+
+// Qo'shimcha adminlar va kartalar alohida boshqariladi (umumiy sozlamalar orqali emas)
 
 export const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS);
 
-export const isAdmin = (id) => env.ADMIN_IDS.includes(Number(id));

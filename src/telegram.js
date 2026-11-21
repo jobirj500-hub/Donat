@@ -1,5 +1,5 @@
-import {cleanPayload,cleanText} from './message-text.js';
 import { env } from './config.js';
+import { adminIds } from './db.js';
 
 // Qattiq muddat: AbortSignal ishlamay qolsa ham so'rov abadiy osilib qolmaydi
 export const deadline = (promise, ms, label) =>
@@ -15,7 +15,7 @@ export async function tg(method, body = {}) {
       const r = await fetch(api(method), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cleanPayload(body)),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(ms),
       });
       return r.json();
@@ -31,14 +31,15 @@ export async function tg(method, body = {}) {
 // Rasm (Buffer) yuborish — chek rasmlari uchun
 export async function sendPhotoBuffer(chatId, buffer, mime, caption, reply_markup) {
   if (!env.BOT_TOKEN) return null;
+  if (!buffer) return null;
   const fd = new FormData();
   fd.append('chat_id', String(chatId));
   fd.append('photo', new Blob([buffer], { type: mime || 'image/jpeg' }), 'chek.jpg');
   if (caption) {
-    fd.append('caption', cleanText(caption));
+    fd.append('caption', caption);
     fd.append('parse_mode', 'HTML');
   }
-  if (reply_markup) fd.append('reply_markup', JSON.stringify(cleanPayload({reply_markup}).reply_markup));
+  if (reply_markup) fd.append('reply_markup', JSON.stringify(reply_markup));
   try {
     const j = await deadline((async () => {
       const r = await fetch(api('sendPhoto'), { method: 'POST', body: fd, signal: AbortSignal.timeout(30000) });
@@ -61,11 +62,24 @@ export const send = (chatId, text, extra = {}) =>
   tg('sendMessage', { chat_id: chatId, text, parse_mode: 'HTML', disable_web_page_preview: true, ...extra });
 
 export async function notifyAdmins(text, extra = {}) {
-  for (const id of env.ADMIN_IDS) await send(id, text, extra);
+  for (const id of adminIds()) await send(id, text, extra);
 }
 
 export function userLabel(u) {
   if (!u) return '—';
   const name = esc([u.first_name, u.last_name].filter(Boolean).join(' ') || 'Foydalanuvchi');
   return `<a href="tg://user?id=${u.id}">${name}</a>${u.username ? ' @' + esc(u.username) : ''} (<code>${u.id}</code>)`;
+}
+
+// Admin xabari: matn, ixtiyoriy rasm (Buffer yoki file_id) va havola tugmasi
+export async function sendRich(chatId, { text = '', photo = null, mime = 'image/jpeg', button = null }) {
+  const reply_markup = button?.url ? { inline_keyboard: [[{ text: button.text || 'Ochish', url: button.url }]] } : undefined;
+  if (!photo) return text ? send(chatId, text, reply_markup ? { reply_markup } : {}) : null;
+  const long = text.length > 1000;
+  const cap = long ? '' : text;
+  const r = Buffer.isBuffer(photo)
+    ? await sendPhotoBuffer(chatId, photo, mime, cap, long ? undefined : reply_markup)
+    : await tg('sendPhoto', { chat_id: chatId, photo, ...(cap ? { caption: cap, parse_mode: 'HTML' } : {}), ...(reply_markup && !long ? { reply_markup } : {}) });
+  if (r && long) await send(chatId, text, reply_markup ? { reply_markup } : {});
+  return r;
 }

@@ -12,3 +12,10 @@ export function effectiveMarkup(globalMarkup, gameMarkup) {
   if (gameMarkup !== null && gameMarkup !== undefined && gameMarkup !== '') return Number(gameMarkup);
   return Number(globalMarkup) || 0;
 }
+
+// Admin paketga qo'lda narx qo'ygan bo'lsa o'sha, bo'lmasa ustama bo'yicha
+export function finalPrice(cost, markupPct, fixed) {
+  const f = Math.round(Number(fixed));
+  if (fixed !== null && fixed !== undefined && fixed !== '' && Number.isFinite(f) && f > 0) return f;
+  return sellPrice(cost, markupPct);
+}

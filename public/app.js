@@ -1,24 +1,11 @@
-import {topupNeeded, validDraft, canResume, orderBody} from './checkout.js?v=gold3';
-import './premium.js?v=gold3';
+import { searchGames, searchProducts } from './search.js?v=2';
 const tg = window.Telegram?.WebApp;
-try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#ffffff'); tg?.setBackgroundColor?.('#ffffff'); } catch {}
+try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#080b17'); tg?.setBackgroundColor?.('#080b17'); } catch {}
 
 const $view = document.getElementById('view');
 const $nav = document.getElementById('nav');
 const $sheet = document.getElementById('sheet-root');
-const state = { me: null, games: null, checkout: null };
-let checkoutTimer=null, checkoutBusy=false;
-const draftKey=()=> 'donat-checkout:'+state.me.user.id;
-function saveDraft(d){state.checkout=d;try{d?sessionStorage.setItem(draftKey(),JSON.stringify(d)):sessionStorage.removeItem(draftKey());}catch{}}
-function readDraft(){try{const d=JSON.parse(sessionStorage.getItem(draftKey())||'null');if(validDraft(d,state.me.user.id))state.checkout=d;else saveDraft(null);}catch{saveDraft(null);}}
-async function resumeCheckout(){
-  const d=state.checkout;if(checkoutBusy||!canResume(d,state.me.user.balance,state.me.user.id))return false;
-  checkoutBusy=true;
-  try{const r=await api('/orders',{method:'POST',body:orderBody(d)});state.me.user.balance=r.balance;saveDraft(null);closeSheet();toast(r.order.status==='refunded'?'Buyurtma bajarilmadi. Mablag‘ balansingizga qaytarildi.':'Buyurtma qabul qilindi. Holati buyurtmalarda ko‘rinadi.',r.order.status==='refunded'?'bad':'ok');go('#/orders');return true;}
-  catch(e){if(!['no_balance'].includes(e.code)){saveDraft(null);toast(e.message||'Xarid yakunlanmadi. Buyurtmalarni tekshiring.','bad');}return false;}
-  finally{checkoutBusy=false;}
-}
-
+const state = { me: null, games: null };
 
 // ---------- helpers ----------
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -64,16 +51,27 @@ function sheet(html) {
   return $sheet.querySelector('.sheet');
 }
 const closeSheet = () => { $sheet.innerHTML = ''; };
-function cancelDraft(){saveDraft(null);clearInterval(checkoutTimer);pages.topup();}
 
 // ---------- shared blocks ----------
 function balanceCard() {
   return `<div class="card balance"><div class="ic">💰</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div>`;
 }
 function gameTile(g) {
-  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? '<span class="hot">TOP</span>' : ''}</div><span>${h(g.name)}</span></a>`;
+  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? '<span class="hot">★ Top</span>' : ''}</div><span>${h(g.name)}</span></a>`;
 }
 const skelGrid = (n = 8) => `<div class="grid">${Array.from({ length: n }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>`;
+function searchBox(id, ph) {
+  return `<label class="search"><span>🔍</span><input id="${id}" placeholder="${h(ph)}" autocomplete="off" enterkeyhint="search"><button type="button" class="sx" data-clear="${id}" hidden>✕</button></label>`;
+}
+function bindSearch(id, onChange, delay = 120) {
+  const inp = document.getElementById(id); const x = document.querySelector(`[data-clear="${id}"]`);
+  let t; const fire = () => { x.hidden = !inp.value; clearTimeout(t); t = setTimeout(() => onChange(inp.value.trim()), delay); };
+  inp.oninput = fire;
+  inp.onkeydown = (e) => { if (e.key === 'Enter') inp.blur(); };
+  x.onclick = (e) => { e.preventDefault(); inp.value = ''; fire(); inp.focus(); };
+  x.hidden = !inp.value;
+}
+const gamesGrid = (list) => list.length ? `<div class="grid">${list.map(gameTile).join('')}</div>` : '<div class="empty"><div class="ei">🔎</div><b>Topilmadi</b>Boshqacha yozib ko‘ring: masalan «pubg», «ff», «mlbb»</div>';
 async function loadGames() { if (!state.games) state.games = (await api('/games')).games; return state.games; }
 async function refreshMe() { state.me = await api('/me'); return state.me; }
 
@@ -84,31 +82,46 @@ pages.home = async () => {
   const { user, settings } = state.me;
   const name = user.first_name || user.username || 'do‘st';
   $view.innerHTML = `
-    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Xush kelibsiz</small><b>${h(name)}</b></div></div>
+    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div></div>
     ${balanceCard()}
     <div class="row2"><a class="tile" href="#/profile"><span class="e">🎟️</span>Promokodlar</a><button class="tile" id="help"><span class="e">🎧</span>Yordam</button></div>
     ${settings.shop_open ? '' : '<div class="card mt badt">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
-    <div class="banner"><h2>${h(settings.banner_title)}</h2><p>${h(settings.banner_subtitle)}</p><img src="/media/loot.webp" alt="Oltin olmoslar"></div>
-    <div class="sec"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
+    <div class="banner"><h2>${h(settings.banner_title)}</h2><p>${h(settings.banner_subtitle)}</p><img src="/logo.jpg" alt=""></div>
+    ${searchBox('hq', 'O‘yinni qidiring: pubg, ff, mlbb, stars…')}
+    <div class="sec" id="popt"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
     <div id="pop">${skelGrid(8)}</div>
     <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">🏆</span><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
   document.getElementById('help').onclick = () => openLink(settings.support_url);
   const games = await loadGames();
-  document.getElementById('pop').innerHTML = `<div class="grid">${games.slice(0, 16).map(gameTile).join('')}</div>`;
+  const pop = document.getElementById('pop'); const popt = document.getElementById('popt');
+  const draw = (q) => {
+    popt.querySelector('h3').textContent = q ? 'Qidiruv natijasi' : 'Ommabop o‘yinlar';
+    pop.innerHTML = q ? gamesGrid(searchGames(games, q).slice(0, 40)) : `<div class="grid">${games.slice(0, 16).map(gameTile).join('')}</div>`;
+  };
+  draw('');
+  bindSearch('hq', draw);
 };
 
 pages.games = async () => {
   $view.innerHTML = `<div class="page-title">Barcha o‘yinlar</div>
-    <label class="search"><span>🔍</span><input id="q" placeholder="O‘yin yoki xizmatni qidiring" autocomplete="off"></label>
+    ${searchBox('q', 'O‘yin yoki xizmat: pubg, ff, mlbb, stars…')}
+    <div class="chips" id="gs" style="margin-top:0"><button class="chip on" data-s="">⭐ Ommabop</button><button class="chip" data-s="az">A–Z</button><button class="chip" data-s="tg">✈️ Telegram</button></div>
+    <div class="hint" id="cnt" style="margin:4px 0 10px"></div>
     <div id="list">${skelGrid(16)}</div>`;
   const games = await loadGames();
-  const list = document.getElementById('list');
-  const draw = (q = '') => {
-    const f = games.filter((g) => g.name.toLowerCase().includes(q.toLowerCase()) || g.slug.includes(q.toLowerCase()));
-    list.innerHTML = f.length ? `<div class="grid">${f.map(gameTile).join('')}</div>` : '<div class="empty"><div class="ei">🔎</div><b>Topilmadi</b>Boshqa nom bilan qidirib ko‘ring</div>';
+  const list = document.getElementById('list'); const cnt = document.getElementById('cnt');
+  let sort = ''; let q = sessionStorage.getItem('gq') || '';
+  const draw = () => {
+    let f = searchGames(games, q);
+    if (!q && sort === 'az') f = [...f].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === 'tg') f = f.filter((g) => /telegram/i.test(g.name + g.slug));
+    cnt.textContent = q ? `«${q}» bo‘yicha ${f.length} ta topildi` : `${f.length} ta o‘yin va xizmat`;
+    list.innerHTML = gamesGrid(f);
   };
+  document.getElementById('q').value = q;
   draw();
-  document.getElementById('q').oninput = (e) => draw(e.target.value.trim());
+  bindSearch('q', (v) => { q = v; sessionStorage.setItem('gq', v); draw(); });
+  document.querySelectorAll('#gs .chip').forEach((c) => (c.onclick = () => { sort = c.dataset.s; document.querySelectorAll('#gs .chip').forEach((x) => x.classList.toggle('on', x === c)); draw(); }));
 };
 
 pages.game = async (slug) => {
@@ -123,15 +136,19 @@ pages.game = async (slug) => {
     <div class="hero">${img(game.image_url, game.name)}<button class="back" onclick="history.back()">‹</button><h1>${h(game.name)}</h1></div>
     ${groups.length > 1 && groups.length <= 8 ? `<div class="chips" id="chips"><button class="chip on" data-g="">Barchasi</button>${groups.map((g) => `<button class="chip" data-g="${h(g)}">${h(g)}</button>`).join('')}</div>` : ''}
     <div class="sec" style="margin-top:14px"><h3>Paketni tanlang</h3></div>
+    ${products.length > 10 ? searchBox('pq', 'Paketni qidiring: 60, 660 uc…') : ''}
     <div class="pk-grid" id="pk"></div>
     ${products.length ? '' : '<div class="empty"><div class="ei">📦</div><b>Paketlar yo‘q</b>Bu o‘yin uchun hozircha paket mavjud emas</div>'}`;
   const pk = document.getElementById('pk');
+  let pq = '';
   const draw = () => {
-    const list = group && group !== 'all' ? products.filter((p) => groupOf(p.name) === group) : products;
+    const list = searchProducts(group && group !== 'all' ? products.filter((p) => groupOf(p.name) === group) : products, pq);
+    if (!list.length) { pk.innerHTML = '<div class="hint center" style="grid-column:1/-1">Bunday paket topilmadi</div>'; return; }
     pk.innerHTML = list.map((p) => `<button class="pk" data-id="${p.id}"><div class="pi">${p.image_url ? img(p.image_url) : game.image_url ? img(game.image_url) : '💎'}</div><div class="grow"><div class="pn">${h(p.name)}</div><div class="pp">${num(p.price)} <small>so‘m</small></div></div></button>`).join('');
     pk.querySelectorAll('.pk').forEach((b) => (b.onclick = () => { haptic(); selected = products.find((p) => p.id === Number(b.dataset.id)); pk.querySelectorAll('.pk').forEach((x) => x.classList.toggle('on', x === b)); buySheet(game, selected); }));
   };
   draw();
+  if (document.getElementById('pq')) bindSearch('pq', (v) => { pq = v; draw(); });
   document.getElementById('chips')?.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { document.querySelectorAll('#chips .chip').forEach((x) => x.classList.toggle('on', x === c)); group = c.dataset.g || 'all'; draw(); }));
   try { tg?.BackButton?.show(); } catch {}
 };
@@ -143,9 +160,9 @@ function buySheet(game, p) {
     <label class="field"><span>${isTg ? 'Telegram username' : 'O‘yinchi ID'}</span>
       <div class="inline"><input class="inp" id="pid" placeholder="${isTg ? '@username' : 'Masalan: 5123456789'}" ${isTg ? '' : 'inputmode="numeric"'} autocomplete="off"><button class="btn btn-ghost btn-sm" id="chk">Tekshirish</button></div></label>
     ${game.needs_server_id ? '<label class="field"><span>Server (Zone) ID</span><input class="inp" id="sid" inputmode="numeric" placeholder="Masalan: 1234"></label>' : ''}
-    <div class="hint" id="vres">ID ni tekshiring. Tekshirish ixtiyoriy; yetkazilgan buyurtmani bekor qilib bo‘lmaydi.</div>
+    <div class="hint" id="vres">ID ni diqqat bilan kiriting — noto‘g‘ri ID ga yuborilgan buyurtma qaytarilmaydi.</div>
     <div class="card mt"><div class="sumrow"><span>Narx</span><b>${som(p.price)}</b></div><div class="sumrow"><span>Balansingiz</span><b>${som(state.me.user.balance)}</b></div></div>
-    <button class="btn btn-primary btn-block mt" id="buy">${state.me.user.balance < p.price ? "To‘ldirish va xarid qilish" : "Xarid qilish"} — ${som(p.price)}</button>`);
+    <button class="btn btn-primary btn-block mt" id="buy">Sotib olish — ${som(p.price)}</button>`);
   const pid = s.querySelector('#pid'); const sid = s.querySelector('#sid'); const vres = s.querySelector('#vres');
   setTimeout(() => pid.focus(), 250);
   s.querySelector('#chk').onclick = async (e) => {
@@ -163,150 +180,54 @@ function buySheet(game, p) {
     const b = e.currentTarget;
     if (!pid.value.trim()) return toast('ID ni kiriting', 'bad');
     if (game.needs_server_id && !sid.value.trim()) return toast('Server ID ni kiriting', 'bad');
-    saveDraft({game,p,player_id:pid.value.trim(),server_id:sid?.value.trim()||'',request_key:crypto.randomUUID(),createdAt:Date.now(),user_id:state.me.user.id});
-    if(state.me.user.balance<p.price){closeSheet();toast('Tanlovingiz saqlandi. Balans to‘ldirilgach shu xarid avtomatik davom etadi.');return go('#/topup');}
+    if (state.me.user.balance < p.price) { toast('Balans yetarli emas', 'bad'); closeSheet(); return go('#/topup'); }
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
     try {
-      const r = await api('/orders', { method: 'POST', body: orderBody(state.checkout) });
+      const r = await api('/orders', { method: 'POST', body: { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() } });
       state.me.user.balance = r.balance;
-      saveDraft(null);
       closeSheet();
       if (r.order.status === 'refunded') toast('Buyurtma bajarilmadi, pul qaytarildi', 'bad');
       else toast('✅ Buyurtma qabul qilindi!', 'ok');
       go('#/orders');
-    } catch (err) { saveDraft(null); toast(err.message, 'bad'); b.disabled = false; b.textContent = `Xarid qilish — ${som(p.price)}`; }
+    } catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = `Sotib olish — ${som(p.price)}`; }
   };
 }
 
 pages.topup = async () => {
-  await refreshMe();
   const { settings, user } = state.me;
-  const auto = !!settings.auto_pay;
-  $view.innerHTML = `<div class="page-title">Balansni to‘ldirish</div>${state.checkout ? `<div class="resume"><b>${h(state.checkout.game.name)} · ${h(state.checkout.p.name)}</b>ID: ${h(state.checkout.player_id)} · ${som(state.checkout.p.price)}<br>Balans to‘ldirilgach shu xarid avtomatik yuboriladi.<br><button id="cancel-draft">Avtomatik xaridni bekor qilish</button></div>` : ""}
-    <div class="card balance"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div></div>
-    ${auto ? `<div id="autobox">${spinner()}</div>${settings.card_number ? '<button class="btn btn-ghost btn-block mt" id="showman">🧾 Chek orqali to‘ldirish</button>' : ''}<div id="manual" hidden></div>` : '<div id="manual"></div>'}
-    <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
-  document.getElementById('cancel-draft')?.addEventListener('click',cancelDraft);
-  clearInterval(checkoutTimer);
-  if(state.checkout)checkoutTimer=setInterval(async()=>{try{await refreshMe();await resumeCheckout();}catch{}},5000);
-  if (auto) {
-    renderAuto(document.getElementById('autobox'));
-    document.getElementById('showman')?.addEventListener('click', (e) => { e.currentTarget.remove(); const m = document.getElementById('manual'); m.hidden = false; renderManual(m); });
-  } else renderManual(document.getElementById('manual'));
-  const { topups } = await api('/orders');
-  document.getElementById('mine').innerHTML = topups.length ? topups.map((t) => `<div class="li"><div class="th">${t.method === 'auto' ? '⚡' : '💳'}</div><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${date(t.created_at)}</div></div><span class="badge ${t.status}">${t.method === 'auto' && t.status === 'pending' ? 'Kutilmoqda' : t.method === 'auto' && t.status === 'rejected' ? 'Bekor qilindi' : STATUS[t.status]}</span></div>`).join('') : '<div class="hint center" style="margin:0">Hali so‘rov yo‘q</div>';
-};
-
-// ⚡ Avto to'lov (HamyonAPI): summa -> karta -> 5–30 soniyada avtomatik tasdiq
-let autoTimer = null;
-async function renderAuto(box) {
-  clearInterval(autoTimer);
-  const { settings } = state.me;
-  let active = null;
-  try { active = (await api('/topups/auto/active')).topup; } catch {}
-  if (active?.card) return renderAutoPay(box, active);
-  const quick = [10000, 20000, 50000, 100000].filter((v) => v >= settings.min_topup && v <= settings.max_topup);
-  box.innerHTML = `<div class="sec"><h3>⚡ Avto to‘lov</h3></div>
-    <div class="card">
-      <label class="field" style="margin-top:0"><span>Summa (so‘m)</span><input class="inp" id="aamt" inputmode="numeric" placeholder="Eng kam: ${num(settings.min_topup)}"></label>
-      ${quick.length ? `<div class="chips">${quick.map((v) => `<button class="chip" data-v="${v}">${num(v)}</button>`).join('')}</div>` : ''}
-      <button class="btn btn-primary btn-block mt" id="acreate">To‘lov yaratish</button>
-      <div class="hint">HUMO yoki UZCARD kartadan o‘tkazasiz — balans 5–30 soniyada o‘zi to‘ldiriladi. Chek kerak emas.</div>
-    </div>`;
-  const amt = box.querySelector('#aamt');
-  if(state.checkout)amt.value=num(topupNeeded(state.checkout.p.price,state.me.user.balance,settings.min_topup,settings.max_topup));
-  amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; box.querySelectorAll('.chip').forEach((c) => c.classList.remove('on')); };
-  box.querySelectorAll('.chip').forEach((c) => (c.onclick = () => { amt.value = num(c.dataset.v); box.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === c)); }));
-  box.querySelector('#acreate').onclick = async (e) => {
-    const b = e.currentTarget; const amount = Number(amt.value.replace(/\D/g, ''));
-    if (!amount || amount < settings.min_topup) return toast(`Eng kam summa: ${som(settings.min_topup)}`, 'bad');
-    if (amount > settings.max_topup) return toast(`Eng ko‘p summa: ${som(settings.max_topup)}`, 'bad');
-    b.disabled = true; b.textContent = 'Yaratilmoqda…';
-    try { const { topup } = await api('/topups/auto', { method: 'POST', body: { amount } }); renderAutoPay(box, topup, amount); }
-    catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = 'To‘lov yaratish'; }
-  };
-}
-
-function renderAutoPay(box, t, asked = null) {
-  clearInterval(autoTimer);
-  const card = String(t.card || '');
-  box.innerHTML = `<div class="sec"><h3>⚡ To‘lov #${t.id}</h3></div>
-    <div class="paycard autopay" id="ap-${t.id}">
-      <div class="label">Shu kartaga o‘tkazing</div>
-      <div class="ap-row"><div class="num">${h(card)}</div><button class="btn btn-ghost btn-sm" data-copy="${h(card.replace(/\s/g, ''))}">📋</button></div>
-      <div class="label mt">Aynan shu summani o‘tkazing</div>
-      <div class="ap-row"><div class="num ap-amt">${num(t.amount)} <span>so‘m</span></div><button class="btn btn-ghost btn-sm" data-copy="${t.amount}">📋</button></div>
-      ${asked && asked !== t.amount ? `<div class="hint">Summa ${num(t.amount - asked)} so‘mga o‘zgartirildi — to‘lovingizni aniq topish uchun. Ortiqcha so‘m ham balansga tushadi.</div>` : ''}
-      <div class="hint">⚠️ Summa so‘migacha bir xil bo‘lishi shart, aks holda to‘lov topilmaydi.</div>
-      <div class="ap-status"><span class="ap-dot"></span><b id="apst">To‘lov kutilmoqda…</b><span class="grow"></span><span class="ap-timer" id="aptm">--:--</span></div>
-      <button class="btn btn-ghost btn-block mt" id="apcancel">Bekor qilish</button>
-    </div>`;
-  box.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy); toast('Nusxalandi', 'ok'); }));
-  const tm = box.querySelector('#aptm');
-  const tick = () => { const left = Math.max(0, (t.expire_at || 0) - Math.floor(Date.now() / 1000)); tm.textContent = `${String(Math.floor(left / 60)).padStart(2, '0')}:${String(left % 60).padStart(2, '0')}`; if (!left) box.querySelector('#apst').textContent = 'Tekshirilmoqda…'; };
-  tick();
-  const finish = async (ok) => {
-    clearInterval(autoTimer);
-    if (ok) {
-      try { tg?.HapticFeedback?.notificationOccurred('success'); } catch {}
-      box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">✅</div><b>Balans to‘ldirildi!</b><div class="hint">+${som(t.amount)}</div></div>`;
-      await refreshMe(); if(await resumeCheckout())return; setTimeout(() => { if (location.hash === '#/topup') pages.topup(); }, 1800);
-    } else {
-      box.innerHTML = `<div class="card center ap-done"><div style="font-size:44px">⌛</div><b>To‘lov yakunlanmadi</b><div class="hint">Muddati tugadi yoki bekor qilindi. Pul o‘tkazgan bo‘lsangiz, yordam bo‘limiga yozing.</div><button class="btn btn-primary btn-block mt" id="apagain">Qayta urinish</button></div>`;
-      box.querySelector('#apagain').onclick = () => renderAuto(box);
-    }
-  };
-  let n = 0;
-  autoTimer = setInterval(async () => {
-    if (!document.getElementById('ap-' + t.id)) return clearInterval(autoTimer);
-    tick();
-    if (++n % 4) return; // har 4 soniyada holat
-    try {
-      const r = await api(`/topups/${t.id}/status`);
-      if (r.topup.status === 'approved') { t.amount = r.topup.amount; finish(true); }
-      else if (r.topup.status === 'rejected') finish(false);
-    } catch {}
-  }, 1000);
-  box.querySelector('#apcancel').onclick = async (e) => {
-    if (!confirm('To‘lov bekor qilinsinmi? Pul o‘tkazgan bo‘lsangiz, bekor qilmang.')) return;
-    e.currentTarget.disabled = true;
-    try { const r = await api(`/topups/${t.id}/cancel`, { method: 'POST' }); if (r.topup.status === 'approved') finish(true); else { clearInterval(autoTimer); renderAuto(box); } }
-    catch (err) { toast(err.message, 'bad'); e.currentTarget.disabled = false; }
-  };
-}
-
-// 🧾 Karta + chek (admin qo'lda tasdiqlaydi)
-function renderManual(box) {
-  const { settings } = state.me;
   let receipt = null;
-  box.innerHTML = `<div class="sec"><h3>1. Kartaga o‘tkazing</h3></div>
-    ${settings.card_number ? `<div class="paycard"><div class="label">${h(settings.card_bank || 'Karta raqami')}</div><div class="num">${h(settings.card_number)}</div><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="hint" style="margin:0">${h(settings.card_holder)}</span><button class="btn btn-ghost btn-sm" id="copy">📋 Nusxa</button></div></div>` : '<div class="card hint">Karta raqami hali sozlanmagan. Admin bilan bog‘laning.</div>'}
+  $view.innerHTML = `<div class="page-title">Balansni to‘ldirish</div>
+    <div class="card balance"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div></div>
+    <div class="sec"><h3>1. Kartaga o‘tkazing</h3></div>
+    ${settings.cards?.length ? settings.cards.map((c) => `<div class="paycard" style="margin-bottom:10px"><div class="label">${h(c.bank || 'Karta raqami')}</div><div class="num">${h(c.number)}</div><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><span class="hint" style="margin:0">${h(c.holder)}</span><button class="btn btn-ghost btn-sm" data-copy="${h(c.number)}">📋 Nusxa</button></div></div>`).join('') + (settings.cards.length > 1 ? '<div class="hint" style="margin-top:-2px">Istalgan bittasiga o‘tkazing.</div>' : '') : '<div class="card hint">Karta raqami hali sozlanmagan. Admin bilan bog‘laning.</div>'}
     <div class="sec"><h3>2. Summa va chek</h3></div>
     <div class="card">
       <label class="field" style="margin-top:0"><span>O‘tkazgan summangiz (so‘m)</span><input class="inp" id="amt" inputmode="numeric" placeholder="Eng kam: ${num(settings.min_topup)}"></label>
       <label class="field"><span>To‘lov cheki (skrinshot)</span><label class="drop" id="drop"><input type="file" id="file" accept="image/*" hidden><span style="font-size:28px">📎</span><span>Rasm tanlash uchun bosing</span></label></label>
       <button class="btn btn-primary btn-block mt" id="send">Yuborish</button>
       <div class="hint">Admin chekni tekshirib, balansingizni to‘ldiradi. Odatda 5–30 daqiqa.</div>
-    </div>`;
-  document.getElementById('copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(settings.card_number.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); });
+    </div>
+    <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
+  document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); }));
   const amt = document.getElementById('amt');
-  if(state.checkout)amt.value=num(topupNeeded(state.checkout.p.price,state.me.user.balance,settings.min_topup,settings.max_topup));
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; };
   document.getElementById('file').onchange = async (e) => {
     const f = e.target.files[0]; if (!f) return;
     receipt = await compress(f);
-    const drop=document.getElementById('drop'); drop.querySelectorAll('img,span').forEach(n=>n.remove()); const preview=document.createElement('img');preview.src=receipt;drop.append(preview);const label=document.createElement('span');label.textContent='Boshqa chek tanlash';drop.append(label);
+    document.getElementById('drop').innerHTML = `<img src="${receipt}"><span>Boshqa rasm tanlash</span><input type="file" id="file2" accept="image/*" hidden>`;
+    document.getElementById('drop').onclick = () => document.getElementById('file').click();
   };
   document.getElementById('send').onclick = async (e) => {
     const b = e.currentTarget; const amount = Number(amt.value.replace(/\D/g, ''));
     if (!amount || amount < settings.min_topup) return toast(`Eng kam summa: ${som(settings.min_topup)}`, 'bad');
-    if (amount > settings.max_topup) return toast(`Eng ko‘p summa: ${som(settings.max_topup)}`, 'bad');
     if (!receipt) return toast('Chek rasmini yuklang', 'bad');
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
     try { await api('/topups', { method: 'POST', body: { amount, receipt } }); toast('✅ So‘rov yuborildi! Tekshirilmoqda', 'ok'); pages.topup(); }
     catch (err) { toast(err.message, 'bad'); b.disabled = false; b.textContent = 'Yuborish'; }
   };
-}
+  const { topups } = await api('/orders');
+  document.getElementById('mine').innerHTML = topups.length ? topups.map((t) => `<div class="li"><div class="th">💳</div><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${date(t.created_at)}</div></div><span class="badge ${t.status}">${STATUS[t.status]}</span></div>`).join('') : '<div class="hint center" style="margin:0">Hali so‘rov yo‘q</div>';
+};
 
 function compress(file) {
   return new Promise((res, rej) => {
@@ -335,7 +256,7 @@ pages.orders = async () => {
 pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
-  const bot = state.me.bot_username;
+  const bot = tg?.initDataUnsafe?.receiver?.username;
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
     ['Buyurtmam o‘yinga tushmadi. Qancha kutaman?', 'Ko‘pincha 1–5 daqiqa. Ba’zi o‘yinlarda biroz ko‘proq vaqt ketishi mumkin. Bajarilmasa pul avtomatik balansingizga qaytadi.'],
@@ -377,7 +298,7 @@ pages.top = async () => {
 };
 
 // ---------- ADMIN ----------
-const ADMIN_TABS = [['stats', '📊 Statistika'], ['topups', '💳 To‘lovlar'], ['orders', '🛒 Buyurtmalar'], ['users', '👥 Foydalanuvchilar'], ['games', '🎮 O‘yinlar'], ['promos', '🎟️ Promokod'], ['settings', '⚙️ Sozlamalar'], ['broadcast', '📣 Xabar']];
+const ADMIN_TABS = [['stats', '📊 Statistika'], ['topups', '🧾 To‘lovlar'], ['orders', '🛒 Buyurtmalar'], ['users', '👥 Foydalanuvchilar'], ['games', '💰 Narxlar va o‘yinlar'], ['message', '✉️ Xabar'], ['cards', '💳 Kartalar'], ['promos', '🎟️ Promokod'], ['admins', '👮 Adminlar'], ['settings', '⚙️ Sozlamalar']];
 pages.admin = async (tab = 'stats') => {
   if (!state.me.isAdmin) return go('#/');
   $view.innerHTML = `<div class="page-title">Admin panel</div><div class="seg">${ADMIN_TABS.map(([k, t]) => `<button class="${k === tab ? 'on' : ''}" data-k="${k}">${t}</button>`).join('')}</div><div id="ap">${spinner()}</div>`;
@@ -390,14 +311,13 @@ admin.stats = async (el) => {
   const s = await api('/admin/stats');
   const st = (l, v) => `<div class="stat"><div class="label">${l}</div><b>${v}</b></div>`;
   el.innerHTML = `
-    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div>${!s.d24.error && Number(s.d24.balance) < 50000 ? '<div class="hint badt" style="margin:0 0 8px">⚠️ Balans kam — buyurtmalar o‘tmay qolishi mumkin</div>' : ''}<div class="hint" style="margin:0 0 10px">Buyurtmalar shu balansdan to‘lanadi.</div><button class="btn btn-primary btn-block" id="d24top">💳 Donat24 balansini to‘ldirish</button></div>
+    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div><div class="hint" style="margin:0">Buyurtmalar shu balansdan to‘lanadi. Kam bo‘lsa donat24.uz da to‘ldiring.</div></div>
     <div class="stats">${st('Foydalanuvchilar', num(s.users))}${st('Bugun yangi', num(s.usersToday))}${st('Kutilayotgan to‘lov', num(s.pendingTopups))}${st('Mijoz balanslari', som(s.balances))}${st('Buyurtmalar', `${num(s.ordersDelivered)} / ${num(s.ordersTotal)}`)}${st('Savdo (bugun)', som(s.revenueToday))}${st('Jami savdo', som(s.revenue))}${st('Foyda', som(s.profit))}${st('Tasdiqlangan to‘lovlar', som(s.topupsApproved))}</div>`;
-  document.getElementById('d24top').onclick = () => openLink('https://donat24.uz/balans');
 };
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
   el.innerHTML = `<div class="chips" style="margin-top:0">${[['pending', 'Kutilmoqda'], ['approved', 'Tasdiqlangan'], ['rejected', 'Rad etilgan']].map(([k, t]) => `<button class="chip ${k === status ? 'on' : ''}" data-s="${k}">${t}</button>`).join('')}</div>
-    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">${t.method === 'auto' ? '⚡ ' : ''}#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px">${t.method === 'auto' ? '' : `<button class="btn btn-sm" data-r="${t.id}">🧾</button>`}<button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. ⚡ — avto to‘lov (pul tushishi bilan o‘zi tasdiqlanadi). Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
+    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-sm" data-r="${t.id}">🧾</button><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
   el.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => admin.topups(el, b.dataset.s)));
   el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => {
     try {
@@ -422,48 +342,110 @@ admin.orders = async (el) => {
   el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => { try { await api(`/admin/orders/${b.dataset.r}/refresh`, { method: 'POST' }); toast('Yangilandi'); admin.orders(el); } catch (e) { toast(e.message, 'bad'); } }));
 };
 admin.users = async (el, q = '') => {
-  const { users } = await api('/admin/users?q=' + encodeURIComponent(q));
-  el.innerHTML = `<label class="search"><span>🔍</span><input id="uq" value="${h(q)}" placeholder="ID, username yoki ism"></label>
-    ${users.length ? `<div class="card list">${users.map((u) => `<div class="li"><div class="grow"><div class="t">${h(u.first_name || '')} ${u.username ? '@' + h(u.username) : ''} ${u.banned ? '⛔' : ''}</div><div class="s"><code>${u.id}</code> · ${date(u.created_at)}</div></div><div style="text-align:right"><div class="amt">${num(u.balance)}</div><button class="btn btn-ghost btn-sm" data-u="${u.id}">Boshqarish</button></div></div>`).join('')}</div>` : '<div class="empty"><b>Topilmadi</b></div>'}`;
-  const uq = el.querySelector('#uq');
-  uq.onkeydown = (e) => { if (e.key === 'Enter') admin.users(el, uq.value.trim()); };
-  el.querySelectorAll('[data-u]').forEach((b) => (b.onclick = () => {
+  el.innerHTML = `${searchBox('uq', 'ID, @username yoki ism')}<div id="ul">${spinner()}</div>`;
+  const ul = el.querySelector('#ul');
+  let users = [];
+  const load = async (v) => {
+    q = v;
+    try { users = (await api('/admin/users?q=' + encodeURIComponent(v))).users; } catch (e) { return toast(e.message, 'bad'); }
+    if (v !== q) return;
+    ul.innerHTML = users.length ? `<div class="card list">${users.map((u) => `<div class="li"><div class="grow"><div class="t">${h(u.first_name || '')} ${u.username ? '@' + h(u.username) : ''} ${u.banned ? '⛔' : ''}</div><div class="s"><code>${u.id}</code> · ${date(u.created_at)}</div></div><div style="text-align:right"><div class="amt">${num(u.balance)}</div><button class="btn btn-ghost btn-sm" data-u="${u.id}">Boshqarish</button></div></div>`).join('')}</div>` : '<div class="empty"><b>Topilmadi</b></div>';
+  };
+  el.querySelector('#uq').value = q;
+  bindSearch('uq', load, 300);
+  await load(q);
+  ul.onclick = (ev) => {
+    const b = ev.target.closest('[data-u]'); if (!b) return;
     const u = users.find((x) => x.id === Number(b.dataset.u));
-    const s = sheet(`<h3>${h(u.first_name || 'Foydalanuvchi')}</h3><div class="hint" style="margin:0">ID ${u.id} · Balans ${som(u.balance)}</div>
+    const s = sheet(`<h3>${h(u.first_name || 'Foydalanuvchi')} ${u.username ? '@' + h(u.username) : ''}</h3><div class="hint" style="margin:0">ID ${u.id} · Balans ${som(u.balance)}</div>
       <label class="field"><span>Summa (+ qo‘shish, − ayirish)</span><input class="inp" id="ba" inputmode="numeric" placeholder="Masalan: 10000 yoki -5000"></label>
       <label class="field"><span>Izoh</span><input class="inp" id="bn" placeholder="Ixtiyoriy"></label>
       <button class="btn btn-primary btn-block mt" id="bs">Balansni o‘zgartirish</button>
+      <button class="btn btn-ghost btn-block mt" id="bm">✉️ Xabar yozish</button>
       <button class="btn ${u.banned ? 'btn-ok' : 'btn-bad'} btn-block mt" id="bb">${u.banned ? 'Blokdan chiqarish' : 'Bloklash'}</button>`);
-    s.querySelector('#bs').onclick = async () => { const a = Number(s.querySelector('#ba').value.replace(/[^\d-]/g, '')); if (!a) return toast('Summani kiriting', 'bad'); try { await api(`/admin/users/${u.id}/balance`, { method: 'POST', body: { amount: a, note: s.querySelector('#bn').value } }); toast('Saqlandi', 'ok'); closeSheet(); admin.users(el, q); } catch (e) { toast(e.message, 'bad'); } };
-    s.querySelector('#bb').onclick = async () => { try { await api(`/admin/users/${u.id}/ban`, { method: 'POST', body: { banned: !u.banned } }); closeSheet(); admin.users(el, q); } catch (e) { toast(e.message, 'bad'); } };
-  }));
+    s.querySelector('#bs').onclick = async () => { const a = Number(s.querySelector('#ba').value.replace(/[^\d-]/g, '')); if (!a) return toast('Summani kiriting', 'bad'); try { await api(`/admin/users/${u.id}/balance`, { method: 'POST', body: { amount: a, note: s.querySelector('#bn').value } }); toast('Saqlandi', 'ok'); closeSheet(); load(q); } catch (e) { toast(e.message, 'bad'); } };
+    s.querySelector('#bb').onclick = async () => { try { await api(`/admin/users/${u.id}/ban`, { method: 'POST', body: { banned: !u.banned } }); closeSheet(); load(q); } catch (e) { toast(e.message, 'bad'); } };
+    s.querySelector('#bm').onclick = () => { closeSheet(); sessionStorage.setItem('msgTo', String(u.id)); go('#/admin/message'); };
+  };
 };
 admin.games = async (el) => {
-  const { games } = await api('/admin/games');
-  el.innerHTML = `<label class="search"><span>🔍</span><input id="gq" placeholder="O‘yinni qidiring"></label><div class="hint" style="margin:-4px 0 12px">★ — bosh sahifada yuqorida. Ko‘z — ko‘rinishi. % — shu o‘yin uchun alohida ustama (bo‘sh = umumiy).</div><div class="card list" id="gl"></div>
+  const [{ games }, pr] = await Promise.all([api('/admin/games'), api('/admin/pricing/all')]);
+  el.innerHTML = `
+    <div class="card"><b>💰 Hamma o‘yinlar narxi</b>
+      <div class="hint" style="margin:4px 0 0">Donat24 narxiga shu foiz qo‘shiladi. Alohida % qo‘yilgan o‘yinlar va qo‘lda narx qo‘yilgan paketlar bundan mustasno.</div>
+      <div class="inline mt"><input class="inp" id="gm" inputmode="decimal" value="${pr.markup}" placeholder="10"><span class="btn btn-ghost" style="pointer-events:none">%</span><button class="btn btn-primary" id="gms">Saqlash</button></div>
+      <div class="hint" id="gmi">Alohida % li o‘yinlar: <b>${pr.game_markups}</b> · Qo‘lda narxli paketlar: <b>${pr.fixed_prices}</b></div>
+      <div class="row2" style="margin-top:8px"><button class="btn btn-ghost btn-sm" id="rgm">O‘yin % larini tozalash</button><button class="btn btn-ghost btn-sm" id="rfp">Qo‘lda narxlarni tozalash</button></div>
+    </div>
+    ${searchBox('gq', 'O‘yinni qidiring: pubg, ff, mlbb…')}
+    <div class="hint" style="margin:-4px 0 12px">O‘yinni bosing — har bir paket narxini o‘zgartirasiz. ★ — bosh sahifada yuqorida. 👁️ — ko‘rinishi. % — shu o‘yin ustamasi (bo‘sh = umumiy).</div>
+    <div class="card list" id="gl"></div>
     <button class="btn btn-ghost btn-block mt" id="cc">🔄 Katalogni yangilash</button>`;
   const gl = el.querySelector('#gl');
-  const draw = (q = '') => {
-    gl.innerHTML = games.filter((g) => g.name.toLowerCase().includes(q.toLowerCase())).slice(0, 120).map((g) => `<div class="li" data-slug="${h(g.slug)}"><div class="th">${img(g.image_url)}</div><div class="grow"><div class="t">${h(g.name)}</div><div class="s">${g.available ? '' : '⚠️ API orqali yo‘q · '}${h(g.slug)}</div></div>
+  let q = '';
+  const draw = () => {
+    const list = searchGames(games, q).slice(0, 150);
+    gl.innerHTML = list.length ? list.map((g) => `<div class="li" data-slug="${h(g.slug)}"><div class="th" data-act="open">${img(g.image_url)}</div><div class="grow" data-act="open" style="min-width:0"><div class="t">${h(g.name)}</div><div class="s">${g.available ? '' : '⚠️ API orqali yo‘q · '}${g.hidden ? '🚫 yashirin · ' : ''}${g.markup !== null && g.markup !== undefined ? `<b style="color:var(--gold)">${g.markup}%</b>` : `umumiy ${pr.markup}%`} · narxlar ›</div></div>
       <button class="btn btn-ghost btn-sm" data-act="pop" style="color:${g.popular ? 'var(--gold)' : 'var(--muted)'}">★</button>
       <button class="btn btn-ghost btn-sm" data-act="hide">${g.hidden ? '🚫' : '👁️'}</button>
-      <input class="inp" data-act="mk" style="width:62px;padding:8px" inputmode="decimal" placeholder="%" value="${g.markup ?? ''}"></div>`).join('');
+      <input class="inp" data-act="mk" style="width:58px;padding:8px" inputmode="decimal" placeholder="%" value="${g.markup ?? ''}"></div>`).join('') : '<div class="hint center" style="margin:0">Topilmadi</div>';
   };
   draw();
-  el.querySelector('#gq').oninput = (e) => draw(e.target.value.trim());
+  bindSearch('gq', (v) => { q = v; draw(); });
+  const refreshInfo = (r) => { pr.markup = r.markup; pr.game_markups = r.game_markups; pr.fixed_prices = r.fixed_prices; el.querySelector('#gmi').innerHTML = `Alohida % li o‘yinlar: <b>${r.game_markups}</b> · Qo‘lda narxli paketlar: <b>${r.fixed_prices}</b>`; state.games = null; };
+  el.querySelector('#gms').onclick = async () => { try { refreshInfo(await api('/admin/pricing/all', { method: 'POST', body: { markup: el.querySelector('#gm').value.trim() } })); toast(`✅ Hamma o‘yinlarga ${pr.markup}% ustama`, 'ok'); draw(); } catch (e) { toast(e.message, 'bad'); } };
+  el.querySelector('#rgm').onclick = async () => { if (!confirm('Hamma o‘yinlarning alohida % lari o‘chirilsinmi? Hammasiga umumiy % ishlaydi.')) return; try { refreshInfo(await api('/admin/pricing/all', { method: 'POST', body: { reset_game_markups: true } })); games.forEach((g) => (g.markup = null)); draw(); toast('Tozalandi', 'ok'); } catch (e) { toast(e.message, 'bad'); } };
+  el.querySelector('#rfp').onclick = async () => { if (!confirm('Hamma qo‘lda qo‘yilgan paket narxlari o‘chirilsinmi?')) return; try { refreshInfo(await api('/admin/pricing/all', { method: 'POST', body: { reset_fixed_prices: true } })); toast('Tozalandi', 'ok'); } catch (e) { toast(e.message, 'bad'); } };
   gl.onclick = async (e) => {
     const b = e.target.closest('[data-act]'); if (!b || b.tagName === 'INPUT') return;
     const slug = b.closest('[data-slug]').dataset.slug; const g = games.find((x) => x.slug === slug);
+    if (b.dataset.act === 'open') return priceSheet(g, pr, () => { draw(); api('/admin/pricing/all').then(refreshInfo).catch(() => {}); });
     const body = b.dataset.act === 'pop' ? { popular: !g.popular } : { hidden: !g.hidden };
-    try { const r = await api('/admin/games/' + encodeURIComponent(slug), { method: 'POST', body }); g.popular = !!r.override.popular; g.hidden = !!r.override.hidden; state.games = null; draw(el.querySelector('#gq').value.trim()); } catch (err) { toast(err.message, 'bad'); }
+    try { const r = await api('/admin/games/' + encodeURIComponent(slug), { method: 'POST', body }); g.popular = !!r.override.popular; g.hidden = !!r.override.hidden; state.games = null; draw(); } catch (err) { toast(err.message, 'bad'); }
   };
   gl.onchange = async (e) => {
     if (e.target.dataset.act !== 'mk') return;
     const slug = e.target.closest('[data-slug]').dataset.slug; const g = games.find((x) => x.slug === slug);
-    try { const r = await api('/admin/games/' + encodeURIComponent(slug), { method: 'POST', body: { markup: e.target.value.trim() } }); g.markup = r.override.markup; toast('Ustama saqlandi', 'ok'); } catch (err) { toast(err.message, 'bad'); }
+    try { const r = await api('/admin/games/' + encodeURIComponent(slug), { method: 'POST', body: { markup: e.target.value.trim() } }); g.markup = r.override.markup; state.games = null; toast('Ustama saqlandi', 'ok'); draw(); } catch (err) { toast(err.message, 'bad'); }
   };
   el.querySelector('#cc').onclick = async () => { await api('/admin/cache/clear', { method: 'POST' }); state.games = null; toast('Katalog yangilandi', 'ok'); admin.games(el); };
 };
+
+// Bitta o'yin paketlari narxi
+async function priceSheet(g, pr, onDone) {
+  const s = sheet(spinner());
+  let d;
+  try { d = await api(`/admin/games/${encodeURIComponent(g.slug)}/products`); } catch (e) { closeSheet(); return toast(e.message, 'bad'); }
+  const mk = d.game.markup ?? d.global_markup;
+  s.innerHTML = `<div class="grab"></div>
+    <div style="display:flex;gap:12px;align-items:center"><div class="li" style="padding:0"><div class="th">${img(g.image_url)}</div></div><div class="grow"><h3 style="margin:0">${h(g.name)}</h3><div class="hint" style="margin:2px 0 0">${d.products.length} ta paket · ustama ${mk}%${d.game.markup !== null ? ' (alohida)' : ' (umumiy)'}</div></div></div>
+    <div class="hint">Narx katagiga o‘z narxingizni yozing. Bo‘sh qoldirsangiz — avtomatik (tannarx + ${mk}%). <span class="badt">Qizil</span> — tannarxdan arzon (zarar).</div>
+    ${d.products.length > 8 ? searchBox('ppq', 'Paketni qidiring') : ''}
+    <div class="list" id="pl" style="max-height:52vh;overflow:auto;margin-top:8px"></div>
+    <div class="row2" style="margin-top:12px"><button class="btn btn-ghost" id="pclr">Hammasini avtomatik</button><button class="btn btn-primary" id="psave">💾 Saqlash</button></div>`;
+  const pl = s.querySelector('#pl'); const changed = new Map();
+  const row = (p) => `<div class="li" data-id="${p.id}"><div class="th">${p.image_url ? img(p.image_url) : img(g.image_url)}</div><div class="grow" style="min-width:0"><div class="t" style="white-space:normal">${h(p.name)}</div><div class="s">tannarx ${num(p.cost)} · avto ${num(p.auto_price)}</div></div><input class="inp${p.fixed_price && p.fixed_price < p.cost ? ' loss' : ''}" data-pid="${p.id}" style="width:104px;padding:9px;text-align:right" inputmode="numeric" placeholder="${num(p.auto_price)}" value="${changed.has(p.id) ? h(changed.get(p.id) ?? '') : p.fixed_price ? num(p.fixed_price) : ''}"></div>`;
+  let q = '';
+  const draw = () => { pl.innerHTML = searchProducts(d.products, q).map(row).join('') || '<div class="hint center">Topilmadi</div>'; };
+  draw();
+  if (s.querySelector('#ppq')) bindSearch('ppq', (v) => { q = v; draw(); });
+  pl.oninput = (e) => {
+    const i = e.target; if (!i.dataset.pid) return;
+    const v = i.value.replace(/\D/g, ''); i.value = v ? num(v) : '';
+    const p = d.products.find((x) => x.id === Number(i.dataset.pid));
+    changed.set(p.id, v ? Number(v) : null);
+    i.classList.toggle('loss', !!v && Number(v) < p.cost);
+  };
+  s.querySelector('#pclr').onclick = () => { d.products.forEach((p) => changed.set(p.id, null)); pl.querySelectorAll('[data-pid]').forEach((i) => { i.value = ''; i.classList.remove('loss'); }); };
+  s.querySelector('#psave').onclick = async (e) => {
+    if (!changed.size) return closeSheet();
+    const loss = [...changed].filter(([id, v]) => v && v < d.products.find((p) => p.id === id).cost).length;
+    if (loss && !confirm(`${loss} ta paket tannarxdan arzon (zarar). Baribir saqlansinmi?`)) return;
+    e.currentTarget.disabled = true;
+    try { await api(`/admin/games/${encodeURIComponent(g.slug)}/prices`, { method: 'POST', body: { items: [...changed].map(([product_id, price]) => ({ product_id, price })) } }); toast('✅ Narxlar saqlandi', 'ok'); closeSheet(); onDone?.(); }
+    catch (err) { toast(err.message, 'bad'); e.currentTarget.disabled = false; }
+  };
+}
 admin.promos = async (el) => {
   const { promos } = await api('/admin/promos');
   el.innerHTML = `<div class="card"><b>Yangi promokod</b>
@@ -475,34 +457,123 @@ admin.promos = async (el) => {
   el.querySelectorAll('[data-del]').forEach((b) => (b.onclick = async () => { if (!confirm('O‘chirilsinmi?')) return; await api('/admin/promos/' + encodeURIComponent(b.dataset.del), { method: 'DELETE' }); admin.promos(el); }));
 };
 admin.settings = async (el) => {
-  const { settings: s, hamyon: hy } = await api('/admin/settings');
+  const { settings: s } = await api('/admin/settings');
   const f = (k, label, ph = '', type = 'text') => `<label class="field"><span>${label}</span>${type === 'area' ? `<textarea class="inp" data-k="${k}" placeholder="${h(ph)}">${h(s[k])}</textarea>` : `<input class="inp" data-k="${k}" value="${h(s[k])}" placeholder="${h(ph)}" ${type === 'num' ? 'inputmode="decimal"' : ''}>`}</label>`;
   el.innerHTML = `
     <div class="card"><b>💰 Narx</b>${f('markup', 'Umumiy ustama (%) — Donat24 narxiga qo‘shiladi', '10', 'num')}${f('min_topup', 'Eng kam to‘ldirish (so‘m)', '5000', 'num')}${f('max_topup', 'Eng ko‘p to‘ldirish (so‘m)', '10000000', 'num')}${f('ref_bonus', 'Do‘st taklifi bonusi (so‘m, 0 = o‘chiq)', '0', 'num')}</div>
-    <div class="card"><div style="display:flex;align-items:center;gap:12px"><div class="grow"><b>⚡ Avto to‘lov (HamyonAPI)</b><div class="hint" style="margin:2px 0 0">${hy?.configured ? '✅ Kalitlar ulangan' : '⚠️ Railway’da HAMYON_SHOP_ID va HAMYON_SHOP_KEY qo‘shilmagan'}</div></div><label class="switch"><input type="checkbox" id="autopay" ${s.auto_pay === '1' ? 'checked' : ''}><i></i></label></div>
-      ${hy?.complete_url ? `<div class="hint">@HamyonAPIBot do‘kon sozlamalariga kiriting:<br>prepare_url: <code>${h(hy.prepare_url)}</code><br>complete_url: <code>${h(hy.complete_url)}</code></div>` : ''}</div>
-    <div class="card"><b>💳 To‘lov kartasi (chek usuli)</b>${f('card_number', 'Karta raqami', '8600 0000 0000 0000')}${f('card_holder', 'Karta egasi', 'ISM FAMILIYA')}${f('card_bank', 'Karta turi / bank', 'Humo · Uzcard')}</div>
+    <a class="card" href="#/admin/cards" style="display:flex;align-items:center;gap:12px"><span style="font-size:22px">💳</span><div class="grow"><b>To‘lov kartalari</b><div class="hint" style="margin:2px 0 0">Kartalar bo‘limida qo‘shiladi</div></div><span>›</span></a>
     <div class="card"><b>🔗 Havolalar</b>${f('channel_url', 'Kanal havolasi', 'https://t.me/kanalingiz')}${f('support_url', 'Yordam (admin) havolasi', 'https://t.me/username')}</div>
     <div class="card"><b>🎨 Ko‘rinish</b>${f('shop_name', 'Do‘kon nomi', 'Donat')}${f('banner_title', 'Banner sarlavhasi')}${f('banner_subtitle', 'Banner matni')}${f('welcome_text', '/start xabari ({name} — ism)', '', 'area')}
-      <div class="hint">/start rasmini almashtirish: botga rasm yuboring va izohiga <code>/setphoto</code> yozing.</div></div>
+      <label class="field"><span>/start rasmi</span><label class="drop" id="wdrop"><input type="file" id="wfile" accept="image/*" hidden>${/^https?:/.test(s.welcome_photo) ? `<img src="${h(s.welcome_photo)}">` : '<img src="/logo.jpg">'}<span>Rasmni almashtirish uchun bosing</span></label></label>
+      ${s.welcome_photo ? '<button class="btn btn-ghost btn-sm" id="wreset">Standart rasmga qaytarish</button>' : ''}</div>
     <div class="card" style="display:flex;align-items:center;gap:12px"><div class="grow"><b>Do‘kon ochiq</b><div class="hint" style="margin:2px 0 0">O‘chirsangiz, yangi buyurtma qabul qilinmaydi</div></div><label class="switch"><input type="checkbox" id="open" ${s.shop_open === '1' ? 'checked' : ''}><i></i></label></div>
     <button class="btn btn-primary btn-block mt" id="save">💾 Saqlash</button>`;
+  el.querySelector('#wfile').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { const photo = await compress(f); await api('/admin/welcome-photo', { method: 'POST', body: { photo } }); toast('✅ /start rasmi yangilandi', 'ok'); admin.settings(el); } catch (err) { toast(err.message, 'bad'); }
+  };
+  el.querySelector('#wreset')?.addEventListener('click', async () => { await api('/admin/welcome-photo', { method: 'POST', body: {} }); toast('Standart rasm', 'ok'); admin.settings(el); });
   el.querySelector('#save').onclick = async (e) => {
-    const body = { shop_open: el.querySelector('#open').checked ? '1' : '0', auto_pay: el.querySelector('#autopay').checked ? '1' : '0' };
+    const body = { shop_open: el.querySelector('#open').checked ? '1' : '0' };
     el.querySelectorAll('[data-k]').forEach((i) => (body[i.dataset.k] = i.value.trim()));
     e.currentTarget.disabled = true;
     try { await api('/admin/settings', { method: 'POST', body }); await refreshMe(); state.games = null; toast('✅ Saqlandi', 'ok'); } catch (err) { toast(err.message, 'bad'); }
     e.currentTarget.disabled = false;
   };
 };
-admin.broadcast = async (el) => {
-  el.innerHTML = `<div class="card"><b>📣 Barcha foydalanuvchilarga xabar</b><label class="field"><span>Matn</span><textarea class="inp" id="bt" placeholder="Yangi aksiya!..."></textarea></label><button class="btn btn-primary btn-block mt" id="bsend">Yuborish</button><div class="hint">Natija botga keladi.</div></div>`;
-  el.querySelector('#bsend').onclick = async (e) => { const text = el.querySelector('#bt').value.trim(); if (!text) return toast('Matn kiriting', 'bad'); if (!confirm('Hammaga yuborilsinmi?')) return; e.currentTarget.disabled = true; try { await api('/admin/broadcast', { method: 'POST', body: { text } }); toast('Yuborish boshlandi', 'ok'); } catch (err) { toast(err.message, 'bad'); e.currentTarget.disabled = false; } };
+admin.message = async (el) => {
+  const pre = sessionStorage.getItem('msgTo') || ''; sessionStorage.removeItem('msgTo');
+  let mode = pre ? 'one' : 'all'; let photo = null;
+  const info = await api('/admin/broadcast');
+  el.innerHTML = `<div class="seg" id="mm"><button data-m="all">📣 Hammaga</button><button data-m="one">👤 Bitta odamga</button></div>
+    <div class="card">
+      <div id="tob"><label class="field" style="margin-top:0"><span>Kimga (Telegram ID yoki @username)</span><input class="inp" id="mto" value="${h(pre)}" placeholder="Masalan: 8787603995 yoki @username" autocomplete="off"></label><div class="hint" id="mwho"></div></div>
+      <div class="hint" id="allh" style="margin-top:0">Botga START bosgan <b>${num(info.users)}</b> ta foydalanuvchiga yuboriladi.</div>
+      <label class="field"><span>Xabar matni</span><textarea class="inp" id="bt" rows="5" placeholder="Yangi aksiya! PUBG UC 10% arzon…"></textarea></label>
+      <label class="field"><span>Rasm (ixtiyoriy)</span><label class="drop" id="mdrop"><input type="file" id="mfile" accept="image/*" hidden><span style="font-size:26px">🖼️</span><span>Rasm tanlash</span></label></label>
+      <div class="row2" style="margin-top:0"><label class="field"><span>Tugma matni</span><input class="inp" id="btt" placeholder="Do‘konni ochish"></label><label class="field"><span>Tugma havolasi</span><input class="inp" id="btu" placeholder="https://t.me/..."></label></div>
+      <button class="btn btn-primary btn-block mt" id="bsend">Yuborish</button>
+      <div class="hint" id="bst"></div>
+    </div>`;
+  const setMode = (m) => { mode = m; el.querySelectorAll('#mm button').forEach((b) => b.classList.toggle('on', b.dataset.m === m)); el.querySelector('#tob').hidden = m !== 'one'; el.querySelector('#allh').hidden = m !== 'all'; };
+  el.querySelectorAll('#mm button').forEach((b) => (b.onclick = () => setMode(b.dataset.m)));
+  setMode(mode);
+  const who = async () => {
+    const v = el.querySelector('#mto').value.trim(); const w = el.querySelector('#mwho');
+    if (!v) return (w.textContent = '');
+    try { const { user: u } = await api('/admin/users/find?q=' + encodeURIComponent(v)); w.innerHTML = !u ? '<span class="badt">Topilmadi — bu odam botga hali kirmagan</span>' : u.unknown ? '⚠️ Bu ID botda yo‘q — START bosmagan bo‘lsa xabar yetmaydi' : `<span class="okt">✅ ${h(u.first_name || '')} ${u.username ? '@' + h(u.username) : ''} · balans ${som(u.balance)}</span>`; } catch {}
+  };
+  let wt; el.querySelector('#mto').oninput = () => { clearTimeout(wt); wt = setTimeout(who, 350); };
+  if (pre) who();
+  el.querySelector('#mfile').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; photo = await compress(f); el.querySelector('#mdrop').innerHTML = `<img src="${photo}"><span>Boshqa rasm</span>`; el.querySelector('#mdrop').onclick = () => el.querySelector('#mfile').click(); };
+  const st = el.querySelector('#bst');
+  const poll = async () => {
+    const { state: b } = await api('/admin/broadcast');
+    if (!b.started_at) return;
+    st.innerHTML = b.running ? `⏳ Yuborilmoqda: ${b.done}/${b.total} (yetdi: ${b.ok})` : `✅ Oxirgi xabar: ${b.ok}/${b.total} kishiga yetdi`;
+    if (b.running && document.body.contains(st)) setTimeout(poll, 1500);
+  };
+  poll();
+  el.querySelector('#bsend').onclick = async (e) => {
+    const body = { text: el.querySelector('#bt').value.trim(), photo, button_text: el.querySelector('#btt').value.trim(), button_url: el.querySelector('#btu').value.trim() };
+    if (!body.text && !photo) return toast('Matn yoki rasm kiriting', 'bad');
+    const btn = e.currentTarget;
+    if (mode === 'one') {
+      body.to = el.querySelector('#mto').value.trim(); if (!body.to) return toast('Kimga yuborishni kiriting', 'bad');
+      btn.disabled = true;
+      try { await api('/admin/message', { method: 'POST', body }); toast('✅ Xabar yetkazildi', 'ok'); el.querySelector('#bt').value = ''; }
+      catch (err) { toast(err.message, 'bad'); }
+      btn.disabled = false; return;
+    }
+    if (!confirm(`${num(info.users)} kishiga yuborilsinmi?`)) return;
+    btn.disabled = true;
+    try { await api('/admin/broadcast', { method: 'POST', body }); toast('Yuborish boshlandi', 'ok'); poll(); } catch (err) { toast(err.message, 'bad'); }
+    btn.disabled = false;
+  };
+};
+
+admin.cards = async (el) => {
+  const { cards } = await api('/admin/cards');
+  el.innerHTML = `${cards.length ? cards.map((c) => `<div class="paycard" style="margin-bottom:10px;${c.active ? '' : 'opacity:.5'}"><div class="label">${h(c.bank || 'Karta')}${c.active ? '' : ' · o‘chirilgan'}</div><div class="num">${h(c.number)}</div><div class="hint" style="margin:0 0 10px">${h(c.holder || '')}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Tahrirlash</button><button class="btn btn-ghost btn-sm" data-tog="${c.id}">${c.active ? '⏸ O‘chirish' : '▶️ Yoqish'}</button><button class="btn btn-bad btn-sm" data-del="${c.id}">🗑️</button></div></div>`).join('') : '<div class="empty"><div class="ei">💳</div><b>Kartalar yo‘q</b>Mijozlar pul o‘tkazishi uchun karta qo‘shing</div>'}
+    <button class="btn btn-primary btn-block mt" id="cadd">＋ Karta qo‘shish</button>
+    <div class="hint">Yoqilgan kartalarning hammasi «To‘ldirish» sahifasida ko‘rinadi.</div>`;
+  const form = (c = {}) => {
+    const s = sheet(`<h3>${c.id ? 'Kartani tahrirlash' : 'Yangi karta'}</h3>
+      <label class="field"><span>Karta raqami</span><input class="inp" id="cn" inputmode="numeric" value="${h(c.number || '')}" placeholder="8600 0000 0000 0000"></label>
+      <label class="field"><span>Karta egasi</span><input class="inp" id="ch" value="${h(c.holder || '')}" placeholder="ISM FAMILIYA"></label>
+      <label class="field"><span>Karta turi / bank</span><input class="inp" id="cb" value="${h(c.bank || '')}" placeholder="Humo · Uzcard · Visa"></label>
+      <button class="btn btn-primary btn-block mt" id="csave">💾 Saqlash</button>`);
+    const cn = s.querySelector('#cn');
+    cn.oninput = () => { cn.value = cn.value.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 '); };
+    s.querySelector('#csave').onclick = async () => {
+      try { await api('/admin/cards', { method: 'POST', body: { id: c.id, number: cn.value, holder: s.querySelector('#ch').value, bank: s.querySelector('#cb').value } }); closeSheet(); toast('✅ Saqlandi', 'ok'); await refreshMe(); admin.cards(el); } catch (e) { toast(e.message, 'bad'); }
+    };
+  };
+  el.querySelector('#cadd').onclick = () => form();
+  el.onclick = async (e) => {
+    const b = e.target.closest('[data-edit],[data-tog],[data-del]'); if (!b) return;
+    try {
+      if (b.dataset.edit) return form(cards.find((c) => c.id === Number(b.dataset.edit)));
+      if (b.dataset.tog) await api(`/admin/cards/${b.dataset.tog}/toggle`, { method: 'POST' });
+      if (b.dataset.del) { if (!confirm('Karta o‘chirilsinmi?')) return; await api(`/admin/cards/${b.dataset.del}`, { method: 'DELETE' }); }
+      await refreshMe(); admin.cards(el);
+    } catch (err) { toast(err.message, 'bad'); }
+  };
+};
+
+admin.admins = async (el) => {
+  const d = await api('/admin/admins');
+  const draw = (admins) => {
+    el.innerHTML = `<div class="card list">${admins.map((a) => `<div class="li"><div class="th">${a.owner ? '👑' : '👮'}</div><div class="grow"><div class="t">${h(a.first_name || 'Admin')} ${a.username ? '@' + h(a.username) : ''}${a.id === d.me ? ' (siz)' : ''}</div><div class="s"><code>${a.id}</code> · ${a.owner ? 'asosiy admin' : 'admin'}${a.started ? '' : ' · ⚠️ botga hali kirmagan'}</div></div>${!a.owner && d.canEdit ? `<button class="btn btn-bad btn-sm" data-rm="${a.id}">🗑️</button>` : ''}</div>`).join('')}</div>
+      ${d.canEdit ? `<div class="card mt"><b>Yangi admin qo‘shish</b><div class="inline mt"><input class="inp" id="aid" inputmode="numeric" placeholder="Telegram ID"><button class="btn btn-primary" id="aadd">Qo‘shish</button></div><div class="hint">ID ni @userinfobot orqali bilish mumkin. Admin botga /start bossin — shunda /admin buyrug‘i chiqadi.</div></div>` : '<div class="hint">Adminlarni faqat asosiy admin qo‘sha oladi.</div>'}`;
+    el.querySelector('#aadd')?.addEventListener('click', async () => { try { const r = await api('/admin/admins', { method: 'POST', body: { id: el.querySelector('#aid').value.trim() } }); toast('✅ Admin qo‘shildi', 'ok'); draw(r.admins); } catch (e) { toast(e.message, 'bad'); } });
+    el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => { if (!confirm('Admin o‘chirilsinmi?')) return; try { const r = await api('/admin/admins/' + b.dataset.rm, { method: 'DELETE' }); draw(r.admins); } catch (e) { toast(e.message, 'bad'); } }));
+  };
+  draw(d.admins);
 };
 
 // ---------- router ----------
 async function route() {
-  clearInterval(checkoutTimer);clearInterval(autoTimer);
   closeSheet();
   const hash = location.hash || '#/';
   const [, page = '', arg = ''] = hash.match(/^#\/([^/]*)\/?(.*)$/) || [];
@@ -522,7 +593,7 @@ try { tg?.BackButton?.onClick(() => history.back()); } catch {}
 
 (async function boot() {
   $view.innerHTML = spinner();
-  try { await refreshMe(); readDraft(); }
+  try { await refreshMe(); }
   catch (e) {
     $nav.innerHTML = '';
     $view.innerHTML = `<div class="empty" style="padding-top:90px"><img src="/logo.jpg" style="width:120px;border-radius:28px;margin:0 auto 20px"><b>${e.code === 'auth' ? 'Telegram orqali oching' : 'Xatolik'}</b>${h(e.message)}</div>`;

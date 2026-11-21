@@ -78,21 +78,25 @@ create table if not exists promo_uses(
   created_at text not null default (datetime('now')),
   primary key(code, user_id)
 );
+create table if not exists cards(
+  id integer primary key autoincrement,
+  number text not null,
+  holder text,
+  bank text,
+  active integer not null default 1,
+  created_at text not null default (datetime('now'))
+);
+create table if not exists product_prices(
+  slug text not null,
+  product_id integer not null,
+  price integer not null,
+  primary key(slug, product_id)
+);
 create index if not exists idx_orders_user on orders(user_id);
 create index if not exists idx_orders_status on orders(status);
 create index if not exists idx_tx_user on tx(user_id);
 create index if not exists idx_topups_status on topups(status);
 `);
-
-// Avto to'lov (HamyonAPI) uchun ustunlar — eski bazaga ham qo'shiladi
-{
-  const cols = new Set(db.prepare('pragma table_info(topups)').all().map((c) => c.name));
-  for (const [c, def] of [['method', "text not null default 'card'"], ['payment_id', 'text'], ['card', 'text'], ['expire_at', 'integer']])
-    if (!cols.has(c)) db.exec(`alter table topups add column ${c} ${def}`);
-  db.exec('create index if not exists idx_topups_payment on topups(payment_id)');
-}
-
-{const cols=new Set(db.prepare('pragma table_info(orders)').all().map(c=>c.name));if(!cols.has('request_key'))db.exec('alter table orders add column request_key text');db.exec('create unique index if not exists idx_orders_request on orders(user_id,request_key) where request_key is not null');}
 
 export function getSetting(key) {
   const r = db.prepare('select value from settings where key=?').get(key);
@@ -149,5 +153,28 @@ export const getOverride = (slug) => db.prepare('select * from game_overrides wh
 export const allOverrides = () => {
   const m = {};
   for (const r of db.prepare('select * from game_overrides').all()) m[r.slug] = r;
+  return m;
+};
+
+// Eski bitta karta sozlamasini kartalar jadvaliga ko'chirish (bir marta)
+{
+  const old = db.prepare("select value from settings where key='card_number'").get()?.value;
+  if (old && !db.prepare('select 1 from cards limit 1').get()) {
+    const g = (k) => db.prepare('select value from settings where key=?').get(k)?.value || '';
+    db.prepare('insert into cards(number,holder,bank) values(?,?,?)').run(old, g('card_holder'), g('card_bank'));
+  }
+}
+export const activeCards = () => db.prepare('select id,number,holder,bank from cards where active=1 order by id').all();
+
+// Adminlar: Railway ADMIN_ID (asosiy, o'chirib bo'lmaydi) + admin paneldan qo'shilganlar
+export const parseIds = (s) => [...new Set(String(s || '').split(/[\s,;]+/).map(Number).filter((n) => Number.isSafeInteger(n) && n > 0))];
+export const extraAdminIds = () => parseIds(getSetting('admin_ids')).filter((id) => !env.ADMIN_IDS.includes(id));
+export const adminIds = () => [...new Set([...env.ADMIN_IDS, ...extraAdminIds()])];
+export const isAdmin = (id) => adminIds().includes(Number(id));
+export const isOwner = (id) => env.ADMIN_IDS.includes(Number(id));
+
+export const fixedPrices = (slug) => {
+  const m = {};
+  for (const r of db.prepare('select product_id, price from product_prices where slug=?').all(slug)) m[r.product_id] = r.price;
   return m;
 };

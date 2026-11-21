@@ -1,4 +1,4 @@
-import { db, getUser, changeBalance, getSetting, AppError } from './db.js';
+import { db, getUser, changeBalance, getSetting, adminIds, AppError } from './db.js';
 import { env } from './config.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -39,16 +39,16 @@ export async function createTopup(userId, amount, dataUrl) {
   } catch (e) {
     console.error('[topup] chekni saqlab bo‘lmadi', e.message);
   }
-  const caption = `<b>To‘lov so‘rovi #${id}</b>\n${userLabel(user)}\nSumma: <b>${fmt(amount)}</b>\nJoriy balans: ${fmt(user.balance)}`;
+  const caption = `💳 <b>To‘lov so‘rovi #${id}</b>\n${userLabel(user)}\nSumma: <b>${fmt(amount)}</b>\nJoriy balans: ${fmt(user.balance)}`;
   const markup = {
     inline_keyboard: [
       [
-        { text: 'Tasdiqlash', callback_data: `tp:ok:${id}` },
-        { text: 'Rad etish', callback_data: `tp:no:${id}` },
+        { text: '✅ Tasdiqlash', callback_data: `tp:ok:${id}` },
+        { text: '❌ Rad etish', callback_data: `tp:no:${id}` },
       ],
     ],
   };
-  for (const admin of env.ADMIN_IDS) await sendPhotoBuffer(admin, buf, m[1], caption, markup);
+  for (const admin of adminIds()) await sendPhotoBuffer(admin, buf, m[1], caption, markup);
   return db.prepare('select * from topups where id=?').get(id);
 }
 
@@ -72,16 +72,16 @@ export async function decideTopup(id, approve, adminId, amountOverride = null) {
   if (!res.already) {
     const { t } = res;
     if (approve) {
-      await send(t.user_id, `<b>To‘lov tasdiqlandi.</b>\nBalansingizga qo‘shildi: +${fmt(t.amount)}\nJoriy balans: <b>${fmt(res.balance)}</b>`);
+      await send(t.user_id, `✅ <b>Balansingiz to‘ldirildi!</b>\n+${fmt(t.amount)}\nJoriy balans: <b>${fmt(res.balance)}</b>`);
       const u = getUser(t.user_id);
       const bonus = Number(getSetting('ref_bonus')) || 0;
       const first = db.prepare("select count(*) c from topups where user_id=? and status='approved'").get(t.user_id).c === 1;
       if (bonus > 0 && first && u?.ref_by && getUser(u.ref_by)) {
         changeBalance(u.ref_by, bonus, 'ref', 'R' + t.user_id, 'Do‘st taklifi bonusi');
-        await send(u.ref_by, `Taklif qilgan do‘stingiz balansini to‘ldirdi. Sizga <b>${fmt(bonus)}</b> bonus qo‘shildi.`);
+        await send(u.ref_by, `🎁 Taklif qilgan do‘stingiz balansini to‘ldirdi. Sizga <b>${fmt(bonus)}</b> bonus!`);
       }
     } else {
-      await send(t.user_id, `<b>To‘lov so‘rovi #${t.id} rad etildi.</b>\nChek ma’lumotlari tasdiqlanmadi. Pul o‘tkazgan bo‘lsangiz, chek va so‘rov raqamini yordam markaziga yuboring.`);
+      await send(t.user_id, `❌ <b>To‘lov so‘rovi #${t.id} rad etildi.</b>\nSavollar bo‘lsa, yordam bo‘limiga yozing.`);
     }
   }
   return res;
