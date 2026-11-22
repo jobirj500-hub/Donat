@@ -8,7 +8,7 @@ import * as d24 from './src/d24.js';
 import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
 import { createTopup, decideTopup, receiptFile } from './src/topups.js';
-import { startBot, broadcast, broadcastState, setAdminCommands, handleUpdate, tgWebhookSecret } from './src/bot.js';
+import { startBot, botUsername, broadcast, broadcastState, setAdminCommands, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { send, sendRich, esc, fmt } from './src/telegram.js';
 import { pendingRating, rateOrder } from './src/ratings.js';
 
@@ -86,6 +86,7 @@ api.get('/me', wrap(async (req, res) => {
     ok: true,
     user: { id: u.id, username: u.username, first_name: u.first_name, last_name: u.last_name, balance: u.balance, banned: !!u.banned, photo_url: req.tgUser.photo_url || null },
     isAdmin: req.isAdmin,
+    bot_username: await botUsername(),
     settings: publicSettings(),
     stats: {
       orders: db.prepare('select count(*) c from orders where user_id=?').get(u.id).c,

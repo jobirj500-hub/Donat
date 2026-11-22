@@ -115,12 +115,22 @@ async function onCallback(cq) {
   }
 }
 
+// Bot @username — taklif havolasi uchun (Mini App ichida Telegram uni bermaydi)
+let botName = '';
+export async function botUsername() {
+  if (botName || !env.BOT_TOKEN) return botName;
+  const me = await tg('getMe');
+  botName = me?.username || '';
+  return botName;
+}
+
 export async function startBot() {
   if (!env.BOT_TOKEN || env.DISABLE_BOT) {
     console.log('[bot] o‘chirilgan (BOT_TOKEN yo‘q yoki DISABLE_BOT=1)');
     return;
   }
   const me = await tg('getMe');
+  if (me?.username) botName = me.username;
   console.log('[bot] ishga tushdi:', me?.username || '(getMe javob bermadi)');
   await setDescriptions();
   await tg('setMyCommands', {

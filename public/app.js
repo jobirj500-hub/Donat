@@ -1,7 +1,8 @@
 import { searchGames, searchProducts } from './search.js?v=2';
 import { referralTerms } from './referral.js?v=1';
 import { icon, starOutline } from './icons.js?v=2';
-import { lang, setLang, startI18n } from './i18n.js?v=1';
+import { lang, setLang, startI18n } from './i18n.js?v=2';
+import { referralLink, copyText } from './share.js?v=1';
 startI18n();
 const tg = window.Telegram?.WebApp;
 // Mavzu (yorug'/qorong'i) — tanlov qurilmada saqlanadi
@@ -64,6 +65,14 @@ function sheet(html) {
   return $sheet.querySelector('.sheet');
 }
 const closeSheet = () => { $sheet.innerHTML = ''; };
+// Nusxalaydi; telefon ruxsat bermasa — matnni belgilab ko'rsatadi, qo'lda nusxalash uchun
+async function copyOrShow(text, okMsg) {
+  if (await copyText(text)) return toast(okMsg, 'ok');
+  const el = sheet(`<b>Nusxalash</b><div class="hint">Matnni bosib turing va «Копировать / Nusxalash» ni tanlang.</div><input class="inp mt" id="cpv" readonly data-raw value="${h(text)}"><button class="btn btn-primary mt" id="cpx" style="width:100%">Yopish</button>`);
+  const inp = el.querySelector('#cpv');
+  setTimeout(() => { inp.focus(); inp.select(); inp.setSelectionRange(0, text.length); }, 50);
+  el.querySelector('#cpx').onclick = closeSheet;
+}
 
 // ---------- shared blocks ----------
 function balanceCard() {
@@ -278,7 +287,7 @@ pages.topup = async () => {
       <div class="hint">Admin chekni tekshirib, balansingizni to‘ldiradi. Odatda 5–30 daqiqa.</div>
     </div>
     <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
-  document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); }));
+  document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => copyOrShow(b.dataset.copy.replace(/\s/g, ''), 'Nusxalandi')));
   const amt = document.getElementById('amt');
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; };
   document.getElementById('file').onchange = async (e) => {
@@ -326,7 +335,7 @@ pages.orders = async () => {
 pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
-  const bot = tg?.initDataUnsafe?.receiver?.username;
+  const bot = state.me.bot_username || tg?.initDataUnsafe?.receiver?.username;
   const ref = referralTerms(settings, stats);
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
@@ -354,16 +363,17 @@ pages.profile = async () => {
     <div class="hint center mt">${h(settings.shop_name)} · Donat24 hamkori</div>`;
   document.getElementById('sup').onclick = () => openLink(settings.support_url);
   document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
-  const refLink = bot ? `https://t.me/${bot}?start=ref${user.id}` : '';
+  const refLink = referralLink(bot, user.id);
   document.getElementById('ref').onclick = () => {
-    if (!refLink) return toast('Bot orqali oching');
+    if (!refLink) return toast('Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring', 'bad');
+    haptic();
     if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent('O‘yinlarga arzon va tez donat!')}`);
-    else { navigator.clipboard?.writeText(refLink); toast('Havola nusxalandi', 'ok'); }
+    else copyOrShow(refLink, 'Havola nusxalandi');
   };
-  document.getElementById('refcopy').onclick = async () => {
-    if (!refLink) return toast('Bot orqali oching');
-    try { await navigator.clipboard.writeText(refLink); toast('Havola nusxalandi', 'ok'); }
-    catch { toast(refLink); }
+  document.getElementById('refcopy').onclick = () => {
+    if (!refLink) return toast('Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring', 'bad');
+    haptic();
+    copyOrShow(refLink, 'Havola nusxalandi');
   };
   document.getElementById('act').onclick = async (e) => {
     const code = document.getElementById('promo').value.trim(); if (!code) return toast('Promokodni kiriting', 'bad');

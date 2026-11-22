@@ -59,7 +59,7 @@ const D = {
   'O‘yin ID sini xato kiritsam nima bo‘ladi?': 'Что будет, если я ошибусь в ID?',
   'Noto‘g‘ri ID ga yetkazilgan buyurtma qaytarilmaydi. Shuning uchun «Tekshirish» tugmasidan foydalaning.': 'Заказ, доставленный на неверный ID, не возвращается. Поэтому пользуйтесь кнопкой «Проверить».',
   'Balansdagi pulni naqd qilib olsam bo‘ladimi?': 'Можно ли вывести деньги с баланса?', 'Balans faqat xizmatlarni sotib olish uchun ishlatiladi.': 'Баланс используется только для покупок.',
-  'Bot orqali oching': 'Откройте через бота', 'Havola nusxalandi': 'Ссылка скопирована', 'Promokodni kiriting': 'Введите промокод', 'Havola hali sozlanmagan': 'Ссылка ещё не настроена',
+  'Bot orqali oching': 'Откройте через бота', 'Havola nusxalandi': 'Ссылка скопирована', 'Yopish': 'Закрыть', 'Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring': 'Ссылка пока не готова. Попробуйте чуть позже', 'Matnni bosib turing va «Копировать / Nusxalash» ni tanlang.': 'Нажмите и удерживайте текст, затем выберите «Копировать».', 'Promokodni kiriting': 'Введите промокод', 'Havola hali sozlanmagan': 'Ссылка ещё не настроена',
   'Hali ro‘yxat bo‘sh': 'Список пока пуст', 'Birinchi bo‘ling!': 'Будьте первым!', 'Yuklab bo‘lmadi': 'Не удалось загрузить', 'Qayta urinish': 'Повторить',
   'Telegram orqali oching': 'Откройте через Telegram', 'Xatolik': 'Ошибка', 'Xatolik yuz berdi': 'Произошла ошибка', 'Hisobingiz bloklangan': 'Ваш аккаунт заблокирован',
   'Balansda mablag‘ yetarli emas': 'Недостаточно средств на балансе',
