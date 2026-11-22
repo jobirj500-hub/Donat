@@ -1,8 +1,19 @@
 import { searchGames, searchProducts } from './search.js?v=2';
 import { referralTerms } from './referral.js?v=1';
-import { icon } from './icons.js?v=1';
+import { icon, starOutline } from './icons.js?v=2';
+import { lang, setLang, startI18n } from './i18n.js?v=1';
+startI18n();
 const tg = window.Telegram?.WebApp;
-try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#f1f2f8'); tg?.setBackgroundColor?.('#f1f2f8'); tg?.setBottomBarColor?.('#f1f2f8'); } catch {}
+// Mavzu (yorug'/qorong'i) — tanlov qurilmada saqlanadi
+const THEME_KEY = 'donat_theme';
+let theme = (() => { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } })();
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  const c = theme === 'dark' ? '#17151f' : '#f1f2f8';
+  try { tg?.setHeaderColor?.(c); tg?.setBackgroundColor?.(c); tg?.setBottomBarColor?.(c); } catch {}
+}
+applyTheme();
+try { tg?.ready(); tg?.expand(); } catch {}
 
 const $view = document.getElementById('view');
 const $nav = document.getElementById('nav');
@@ -90,19 +101,25 @@ pages.home = async () => {
   ];
   $view.innerHTML = `
     <div class="hello"><div class="avatar">${user.photo_url ? img(user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div>
-      <div class="hello-actions">${settings.channel_url ? `<button class="round" id="chn" aria-label="Kanal">${icon('megaphone')}</button>` : ''}<button class="round" id="sup" aria-label="Yordam">${icon('headset')}</button></div></div>
+      <div class="hello-actions"><button class="round" id="lng" aria-label="Til">${lang === 'ru' ? 'UZ' : 'RU'}</button><button class="round" id="thm" aria-label="Mavzu">${icon(theme === 'dark' ? 'moon' : 'sun')}</button></div></div>
     ${balanceCard()}
     <div class="row2"><a class="tile" href="#/profile"><span class="e">${icon('ticket')}</span>Promokodlar</a><button class="tile" id="help"><span class="e">${icon('headset')}</span>Yordam</button></div>
     ${settings.shop_open ? '' : '<div class="notice">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
     <div class="carousel"><div class="slides" id="slides">${slides.map((b) => `<div class="slide ${b.cls}"><img class="art-big" src="/media/${b.art}.webp" alt=""><h2>${h(b.title)}</h2>${b.text ? `<p>${h(b.text)}</p>` : ''}<a class="btn btn-light" href="${b.href}">${h(b.btn)}</a></div>`).join('')}</div><div class="dots" id="dots">${slides.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></div>
+    ${state.me.rate_order ? rateCard(state.me.rate_order) : ''}
     ${searchBox('hq', 'O‘yinni qidiring: pubg, ff, mlbb, stars…')}
     <div class="sec" id="popt"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
     <div id="pop"><div class="hrow">${Array.from({ length: 5 }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div></div>
     <div id="more"></div>
     <a class="card mt link-card" href="#/top"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span class="chev">${icon('chevron')}</span></a>`;
   document.getElementById('help').onclick = () => openLink(settings.support_url);
-  document.getElementById('sup').onclick = () => openLink(settings.support_url);
-  document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
+  document.getElementById('lng').onclick = () => { haptic(); setLang(lang === 'ru' ? 'uz' : 'ru'); };
+  document.getElementById('thm').onclick = (e) => {
+    haptic(); theme = theme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
+    applyTheme(); e.currentTarget.innerHTML = icon(theme === 'dark' ? 'moon' : 'sun');
+  };
+  bindRating(state.me.rate_order);
   // Banner karuseli: nuqtalar va avtomatik aylanish
   const track = document.getElementById('slides'); const dots = [...document.querySelectorAll('#dots i')];
   let cur = 0;
@@ -126,6 +143,30 @@ pages.home = async () => {
   draw('');
   bindSearch('hq', draw);
 };
+
+// ---------- buyurtma bahosi ----------
+function rateCard(o) {
+  return `<div class="card rate" id="rate"><div class="th">${img(o.game_image) || icon('games')}</div><div class="grow"><div class="label">Buyurtmangizni baholang</div><div class="t" data-raw>${h(o.product_name)}</div></div><div class="stars" role="group">${[1, 2, 3, 4, 5].map((n) => `<button data-star="${n}" aria-label="${n}">${starOutline}</button>`).join('')}</div></div>`;
+}
+function bindRating(o) {
+  const card = document.getElementById('rate'); if (!card || !o) return;
+  const btns = [...card.querySelectorAll('[data-star]')];
+  const paint = (n) => btns.forEach((b, i) => b.classList.toggle('on', i < n));
+  btns.forEach((b) => {
+    b.onpointerenter = () => paint(Number(b.dataset.star));
+    b.onclick = async () => {
+      const stars = Number(b.dataset.star); paint(stars); haptic();
+      btns.forEach((x) => (x.disabled = true));
+      try {
+        await api(`/orders/${o.id}/rate`, { method: 'POST', body: { stars } });
+        state.me.rate_order = null;
+        toast('Rahmat! Bahoingiz qabul qilindi', 'ok');
+        card.classList.add('done'); setTimeout(() => card.remove(), 400);
+      } catch (err) { toast(err.message, 'bad'); btns.forEach((x) => (x.disabled = false)); paint(0); }
+    };
+  });
+  card.querySelector('.stars').onpointerleave = () => paint(0);
+}
 
 pages.games = async () => {
   $view.innerHTML = `<div class="page-title">Barcha o‘yinlar</div>
@@ -269,7 +310,7 @@ pages.orders = async () => {
   const ol = document.getElementById('ol');
   const draw = () => {
     if (tab === 'orders') {
-      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛍️</div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
+      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t" data-raw>${h(o.product_name)}</div><div class="s" data-raw>${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span>${o.rating ? `<div class="myrate">${icon('star')}${o.rating}</div>` : ''}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛍️</div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
     } else {
       ol.innerHTML = data.tx.length ? `<div class="card list">${data.tx.map((t) => `<div class="li"><div class="th">${t.amount > 0 ? '⬇️' : '⬆️'}</div><div class="grow"><div class="t">${TX[t.type] || t.type}</div><div class="s">${h(t.note || '')} · ${date(t.created_at)}</div></div><div class="amt ${t.amount > 0 ? 'plus' : ''}">${t.amount > 0 ? '+' : ''}${num(t.amount)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">💸</div><b>Tranzaksiyalar yo‘q</b></div>';
     }

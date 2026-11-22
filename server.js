@@ -10,6 +10,7 @@ import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, we
 import { createTopup, decideTopup, receiptFile } from './src/topups.js';
 import { startBot, broadcast, broadcastState, setAdminCommands, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { send, sendRich, esc, fmt } from './src/telegram.js';
+import { pendingRating, rateOrder } from './src/ratings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -92,6 +93,7 @@ api.get('/me', wrap(async (req, res) => {
       ref_paid: db.prepare("select count(*) c from tx where user_id=? and type='ref'").get(u.id).c,
       ref_earned: db.prepare("select coalesce(sum(amount),0) s from tx where user_id=? and type='ref'").get(u.id).s,
     },
+    rate_order: pendingRating(u.id),
   });
 }));
 
@@ -136,10 +138,14 @@ api.post('/orders', wrap(async (req, res) => {
 }));
 
 api.get('/orders', wrap(async (req, res) => {
-  const orders = db.prepare('select * from orders where user_id=? order by id desc limit 100').all(req.user.id);
+  const orders = db.prepare('select o.*, r.stars as rating from orders o left join order_ratings r on r.order_id=o.id where o.user_id=? order by o.id desc limit 100').all(req.user.id);
   const tx = db.prepare('select * from tx where user_id=? order by id desc limit 100').all(req.user.id);
   const topups = db.prepare('select id,amount,status,created_at from topups where user_id=? order by id desc limit 30').all(req.user.id);
   res.json({ ok: true, orders, tx, topups });
+}));
+
+api.post('/orders/:id/rate', wrap(async (req, res) => {
+  res.json({ ok: true, ...rateOrder(req.user.id, req.params.id, req.body?.stars) });
 }));
 
 api.post('/topups', wrap(async (req, res) => {
