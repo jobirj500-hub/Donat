@@ -89,6 +89,8 @@ api.get('/me', wrap(async (req, res) => {
     stats: {
       orders: db.prepare('select count(*) c from orders where user_id=?').get(u.id).c,
       refs: db.prepare('select count(*) c from users where ref_by=?').get(u.id).c,
+      ref_paid: db.prepare("select count(*) c from tx where user_id=? and type='ref'").get(u.id).c,
+      ref_earned: db.prepare("select coalesce(sum(amount),0) s from tx where user_id=? and type='ref'").get(u.id).s,
     },
   });
 }));

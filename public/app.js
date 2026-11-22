@@ -1,4 +1,5 @@
 import { searchGames, searchProducts } from './search.js?v=2';
+import { referralTerms } from './referral.js?v=1';
 const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#080b17'); tg?.setBackgroundColor?.('#080b17'); } catch {}
 
@@ -257,6 +258,7 @@ pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
   const bot = tg?.initDataUnsafe?.receiver?.username;
+  const ref = referralTerms(settings, stats);
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
     ['Buyurtmam o‘yinga tushmadi. Qancha kutaman?', 'Ko‘pincha 1–5 daqiqa. Ba’zi o‘yinlarda biroz ko‘proq vaqt ketishi mumkin. Bajarilmasa pul avtomatik balansingizga qaytadi.'],
@@ -267,21 +269,32 @@ pages.profile = async () => {
     <div class="card profile"><div class="avatar">${user.photo_url ? img(user.photo_url) : h(name[0]?.toUpperCase())}</div><h2>${h(name)}</h2><div class="pill">${user.username ? '@' + h(user.username) : ''} <span>ID: <code>${user.id}</code></span></div>
       <div class="card balance mt" style="text-align:left"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div></div>
     <div class="card"><b>🎟️ Promokodlar</b><div class="inline mt"><input class="inp" id="promo" placeholder="PROMOKODNI KIRITING" style="text-transform:uppercase"><button class="btn btn-primary" id="act">Faollashtirish</button></div></div>
-    <div class="row2">
-      <button class="card" id="ref" style="text-align:left;margin:0"><div style="font-size:24px">🤝</div><b style="display:block;margin-top:8px">Do‘st taklif qiling</b><div class="hint" style="margin-top:4px">${settings.ref_bonus ? `Har biri uchun ${som(settings.ref_bonus)}` : 'Havolani ulashing'} · ${stats.refs} ta</div></button>
-      <a class="card" href="#/top" style="margin:0"><div style="font-size:24px">🏆</div><b style="display:block;margin-top:8px">Eng yaxshi donorlar</b><div class="hint" style="margin-top:4px">Eng yaxshi 100 talik</div></a>
+    <div class="card refcard mt">
+      <div class="ref-head"><img class="ref-ic" src="/media/gift.webp" alt=""><div class="grow"><div class="label">Do‘st taklif qiling</div><b class="ref-title">${h(ref.headline)}</b></div></div>
+      <div class="ref-bonus ${ref.active ? '' : 'off'}"><div><div class="label">Bonus miqdori</div><div class="ref-sum">${h(ref.bonusText)}</div></div><div class="ref-note">${ref.active ? 'Do‘stingizning birinchi to‘ldiruvidan so‘ng' : 'Admin bonusni yoqqanda paydo bo‘ladi'}</div></div>
+      <div class="label mt">Bonus olish shartlari</div>
+      <ol class="ref-steps">${ref.steps.map((t) => `<li>${h(t)}</li>`).join('')}</ol>
+      <ul class="ref-rules">${ref.rules.map((t) => `<li>${h(t)}</li>`).join('')}</ul>
+      <div class="ref-stats"><div><b>${ref.invited}</b><span>Taklif qilingan</span></div><div><b>${ref.paid}</b><span>Bonus berilgan</span></div><div><b>${h(ref.earnedText)}</b><span>Jami bonus</span></div></div>
+      <div class="ref-actions"><button class="btn btn-primary" id="ref">Havolani ulashish</button><button class="btn btn-ghost" id="refcopy">Nusxalash</button></div>
     </div>
+    <a class="card mt list" href="#/top" style="display:block"><div class="li" style="padding:0"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span>›</span></div></a>
     <div class="card mt list"><button class="li" id="sup" style="width:100%"><div class="th">🎧</div><div class="grow t" style="text-align:left">Yordam markazi</div><span>›</span></button>${settings.channel_url ? '<button class="li" id="chn" style="width:100%"><div class="th">📢</div><div class="grow t" style="text-align:left">Bizning kanal</div><span>›</span></button>' : ''}</div>
     <div class="sec"><h3>Tez-tez beriladigan savollar</h3></div>
     <div class="card list">${faq.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>
     <div class="hint center mt">${h(settings.shop_name)} · Donat24 hamkori</div>`;
   document.getElementById('sup').onclick = () => openLink(settings.support_url);
   document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
+  const refLink = bot ? `https://t.me/${bot}?start=ref${user.id}` : '';
   document.getElementById('ref').onclick = () => {
-    if (!bot) return toast('Bot orqali oching');
-    const link = `https://t.me/${bot}?start=ref${user.id}`;
-    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('O‘yinlarga arzon va tez donat!')}`);
-    else { navigator.clipboard?.writeText(link); toast('Havola nusxalandi', 'ok'); }
+    if (!refLink) return toast('Bot orqali oching');
+    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent('O‘yinlarga arzon va tez donat!')}`);
+    else { navigator.clipboard?.writeText(refLink); toast('Havola nusxalandi', 'ok'); }
+  };
+  document.getElementById('refcopy').onclick = async () => {
+    if (!refLink) return toast('Bot orqali oching');
+    try { await navigator.clipboard.writeText(refLink); toast('Havola nusxalandi', 'ok'); }
+    catch { toast(refLink); }
   };
   document.getElementById('act').onclick = async (e) => {
     const code = document.getElementById('promo').value.trim(); if (!code) return toast('Promokodni kiriting', 'bad');
