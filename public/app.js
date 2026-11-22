@@ -1,7 +1,8 @@
 import { searchGames, searchProducts } from './search.js?v=2';
 import { referralTerms } from './referral.js?v=1';
+import { icon } from './icons.js?v=1';
 const tg = window.Telegram?.WebApp;
-try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#080b17'); tg?.setBackgroundColor?.('#080b17'); } catch {}
+try { tg?.ready(); tg?.expand(); tg?.setHeaderColor?.('#f1f2f8'); tg?.setBackgroundColor?.('#f1f2f8'); tg?.setBottomBarColor?.('#f1f2f8'); } catch {}
 
 const $view = document.getElementById('view');
 const $nav = document.getElementById('nav');
@@ -40,9 +41,9 @@ const spinner = () => '<div class="spin"></div>';
 
 // ---------- nav ----------
 function renderNav(active) {
-  const items = [['#/', '🏠', 'Asosiy'], ['#/games', '🎮', 'O‘yinlar'], ['#/topup', '💳', 'To‘ldirish'], ['#/orders', '🕒', 'Buyurtmalar'], ['#/profile', '👤', 'Profil']];
-  if (state.me?.isAdmin) items.push(['#/admin', '⚙️', 'Admin']);
-  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}"><span class="ni">${i}</span>${t}</a>`).join('');
+  const items = [['#/', 'home', 'Asosiy'], ['#/games', 'games', 'O‘yinlar'], ['#/topup', 'wallet', 'To‘ldirish'], ['#/orders', 'clock', 'Buyurtmalar'], ['#/profile', 'user', 'Profil']];
+  if (state.me?.isAdmin) items.push(['#/admin', 'settings', 'Admin']);
+  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}"><span class="ni">${icon(i)}</span>${t}</a>`).join('');
 }
 
 // ---------- sheet ----------
@@ -55,14 +56,14 @@ const closeSheet = () => { $sheet.innerHTML = ''; };
 
 // ---------- shared blocks ----------
 function balanceCard() {
-  return `<div class="card balance"><div class="ic">💰</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div>`;
+  return `<div class="card balance"><div class="ic">${icon('cash')}</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">${icon('plus')}To‘ldirish</a></div>`;
 }
 function gameTile(g) {
-  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? '<span class="hot">★ Top</span>' : ''}</div><span>${h(g.name)}</span></a>`;
+  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? `<span class="hot">${icon('star')}Top</span>` : ''}</div><span>${h(g.name)}</span></a>`;
 }
 const skelGrid = (n = 8) => `<div class="grid">${Array.from({ length: n }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>`;
 function searchBox(id, ph) {
-  return `<label class="search"><span>🔍</span><input id="${id}" placeholder="${h(ph)}" autocomplete="off" enterkeyhint="search"><button type="button" class="sx" data-clear="${id}" hidden>✕</button></label>`;
+  return `<label class="search">${icon('search')}<input id="${id}" placeholder="${h(ph)}" autocomplete="off" enterkeyhint="search"><button type="button" class="sx" data-clear="${id}" hidden>✕</button></label>`;
 }
 function bindSearch(id, onChange, delay = 120) {
   const inp = document.getElementById(id); const x = document.querySelector(`[data-clear="${id}"]`);
@@ -82,22 +83,45 @@ const pages = {};
 pages.home = async () => {
   const { user, settings } = state.me;
   const name = user.first_name || user.username || 'do‘st';
+  const slides = [
+    { cls: 'green', title: settings.banner_title || 'Balansni to‘ldir, qulay narx', text: settings.banner_subtitle, btn: 'To‘ldirish', href: '#/topup', art: 'wallet' },
+    { cls: 'violet', title: 'Do‘stingni taklif qil — bonus ol', text: 'Havolangiz orqali kelgan do‘st birinchi marta to‘ldirsa, bonus sizga', btn: 'Taklif qilish', href: '#/profile', art: 'gift' },
+    { cls: 'sun', title: 'Eng yaxshi donorlar', text: 'Ko‘p donat qiling — top 100 talikka kiring', btn: 'Ko‘rish', href: '#/top', art: 'trophy' },
+  ];
   $view.innerHTML = `
-    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div></div>
+    <div class="hello"><div class="avatar">${user.photo_url ? img(user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div>
+      <div class="hello-actions">${settings.channel_url ? `<button class="round" id="chn" aria-label="Kanal">${icon('megaphone')}</button>` : ''}<button class="round" id="sup" aria-label="Yordam">${icon('headset')}</button></div></div>
     ${balanceCard()}
-    <div class="row2"><a class="tile" href="#/profile"><span class="e">🎟️</span>Promokodlar</a><button class="tile" id="help"><span class="e">🎧</span>Yordam</button></div>
-    ${settings.shop_open ? '' : '<div class="card mt badt">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
-    <div class="banner"><h2>${h(settings.banner_title)}</h2><p>${h(settings.banner_subtitle)}</p><img src="/logo.jpg" alt=""></div>
+    <div class="row2"><a class="tile" href="#/profile"><span class="e">${icon('ticket')}</span>Promokodlar</a><button class="tile" id="help"><span class="e">${icon('headset')}</span>Yordam</button></div>
+    ${settings.shop_open ? '' : '<div class="notice">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
+    <div class="carousel"><div class="slides" id="slides">${slides.map((b) => `<div class="slide ${b.cls}"><img class="art-big" src="/media/${b.art}.webp" alt=""><h2>${h(b.title)}</h2>${b.text ? `<p>${h(b.text)}</p>` : ''}<a class="btn btn-light" href="${b.href}">${h(b.btn)}</a></div>`).join('')}</div><div class="dots" id="dots">${slides.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></div>
     ${searchBox('hq', 'O‘yinni qidiring: pubg, ff, mlbb, stars…')}
     <div class="sec" id="popt"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
-    <div id="pop">${skelGrid(8)}</div>
-    <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">🏆</span><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
+    <div id="pop"><div class="hrow">${Array.from({ length: 5 }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div></div>
+    <div id="more"></div>
+    <a class="card mt link-card" href="#/top"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span class="chev">${icon('chevron')}</span></a>`;
   document.getElementById('help').onclick = () => openLink(settings.support_url);
+  document.getElementById('sup').onclick = () => openLink(settings.support_url);
+  document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
+  // Banner karuseli: nuqtalar va avtomatik aylanish
+  const track = document.getElementById('slides'); const dots = [...document.querySelectorAll('#dots i')];
+  let cur = 0;
+  const mark = () => { cur = Math.round(track.scrollLeft / (track.clientWidth + 12)); dots.forEach((d, i) => d.classList.toggle('on', i === cur)); };
+  track.addEventListener('scroll', () => requestAnimationFrame(mark), { passive: true });
+  const timer = setInterval(() => {
+    if (!document.body.contains(track)) return clearInterval(timer);
+    track.scrollTo({ left: ((cur + 1) % slides.length) * (track.clientWidth + 12), behavior: 'smooth' });
+  }, 4500);
   const games = await loadGames();
-  const pop = document.getElementById('pop'); const popt = document.getElementById('popt');
+  const pop = document.getElementById('pop'); const popt = document.getElementById('popt'); const more = document.getElementById('more');
+  const popular = games.filter((g) => g.popular);
+  const featured = (popular.length >= 4 ? popular : games).slice(0, 12);
+  const rest = games.filter((g) => !featured.includes(g)).slice(0, 16);
   const draw = (q) => {
     popt.querySelector('h3').textContent = q ? 'Qidiruv natijasi' : 'Ommabop o‘yinlar';
-    pop.innerHTML = q ? gamesGrid(searchGames(games, q).slice(0, 40)) : `<div class="grid">${games.slice(0, 16).map(gameTile).join('')}</div>`;
+    if (q) { pop.innerHTML = gamesGrid(searchGames(games, q).slice(0, 40)); more.innerHTML = ''; return; }
+    pop.innerHTML = `<div class="hrow">${featured.map(gameTile).join('')}</div>`;
+    more.innerHTML = rest.length ? `<div class="sec"><h3>Barcha xizmatlar</h3><a href="#/games">Barchasi</a></div><div class="grid">${rest.map(gameTile).join('')}</div>` : '';
   };
   draw('');
   bindSearch('hq', draw);
