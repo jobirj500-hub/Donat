@@ -2,7 +2,7 @@ import { searchGames, searchProducts } from './search.js?v=2';
 import { referralTerms } from './referral.js?v=1';
 import { icon, starOutline } from './icons.js?v=2';
 import { lang, setLang, startI18n } from './i18n.js?v=2';
-import { referralLink, copyText } from './share.js?v=1';
+import { referralLink, copyText } from './share.js?v=2';
 startI18n();
 const tg = window.Telegram?.WebApp;
 // Mavzu (yorug'/qorong'i) — tanlov qurilmada saqlanadi
@@ -336,6 +336,7 @@ pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
   const bot = state.me.bot_username || tg?.initDataUnsafe?.receiver?.username;
+  const refLink = referralLink(bot, user.id);
   const ref = referralTerms(settings, stats);
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
@@ -354,6 +355,7 @@ pages.profile = async () => {
       <ol class="ref-steps">${ref.steps.map((t) => `<li>${h(t)}</li>`).join('')}</ol>
       <ul class="ref-rules">${ref.rules.map((t) => `<li>${h(t)}</li>`).join('')}</ul>
       <div class="ref-stats"><div><b>${ref.invited}</b><span>Taklif qilingan</span></div><div><b>${ref.paid}</b><span>Bonus berilgan</span></div><div><b>${h(ref.earnedText)}</b><span>Jami bonus</span></div></div>
+      ${refLink ? `<div class="ref-link mt"><input class="inp" id="reflink" readonly data-raw value="${h(refLink)}" aria-label="Taklif havolasi"></div>` : ''}
       <div class="ref-actions"><button class="btn btn-primary" id="ref">Havolani ulashish</button><button class="btn btn-ghost" id="refcopy">Nusxalash</button></div>
     </div>
     <a class="card mt list" href="#/top" style="display:block"><div class="li" style="padding:0"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span>›</span></div></a>
@@ -363,7 +365,7 @@ pages.profile = async () => {
     <div class="hint center mt">${h(settings.shop_name)} · Donat24 hamkori</div>`;
   document.getElementById('sup').onclick = () => openLink(settings.support_url);
   document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
-  const refLink = referralLink(bot, user.id);
+  document.getElementById('reflink')?.addEventListener('click', (e) => { e.target.select(); e.target.setSelectionRange(0, refLink.length); });
   document.getElementById('ref').onclick = () => {
     if (!refLink) return toast('Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring', 'bad');
     haptic();

@@ -22,7 +22,9 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const WELCOME_FILE = path.join(env.DATA_DIR, 'welcome.jpg');
 app.get('/media/welcome.jpg', (_req, res) => (fs.existsSync(WELCOME_FILE) ? res.sendFile(path.resolve(WELCOME_FILE)) : res.status(404).end()));
 app.get('/', (_req, res) => res.redirect('/app'));
-app.use('/app', express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: '5m' }));
+// index.html keshlanmaydi — Telegram yangi versiyani darhol oladi (js/css ?v= bilan yangilanadi)
+const noCacheHtml = (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); };
+app.use('/app', express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: '5m', setHeaders: noCacheHtml }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '1h' }));
 
 // Telegram webhook (bot xabarlari)

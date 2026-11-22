@@ -311,6 +311,7 @@ textarea.inp { min-height: 110px; resize: vertical; }
 .ref-stats > div { padding: 12px 6px; border-radius: 14px; text-align: center; background: var(--card-2); }
 .ref-stats b { display: block; font-size: 16px; font-weight: 800; overflow-wrap: anywhere; }
 .ref-stats span { display: block; font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+.ref-link .inp { font-size: 13px; font-weight: 600; color: var(--primary); text-overflow: ellipsis; }
 .ref-actions { display: flex; gap: 8px; margin-top: 14px; }
 .ref-actions .btn-primary { flex: 1; }
 
