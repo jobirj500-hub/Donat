@@ -248,8 +248,12 @@ function buySheet(game, p) {
     if (game.needs_server_id && !sid.value.trim()) return toast('Server ID ni kiriting', 'bad');
     if (state.me.user.balance < p.price) { toast('Balans yetarli emas', 'bad'); closeSheet(); return go('#/topup'); }
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
+    const body = { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() };
+    // Kalit faqat ID/paket o'zgarsa yangilanadi — qayta bosish ikkinchi buyurtma yaratmaydi
+    const sig = JSON.stringify(body);
+    if (b.dataset.sig !== sig) { b.dataset.sig = sig; b.dataset.key = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); }
     try {
-      const r = await api('/orders', { method: 'POST', body: { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() } });
+      const r = await api('/orders', { method: 'POST', body: { ...body, request_key: b.dataset.key, max_price: p.price } });
       state.me.user.balance = r.balance;
       closeSheet();
       if (r.order.status === 'refunded') toast('Buyurtma bajarilmadi, pul qaytarildi', 'bad');

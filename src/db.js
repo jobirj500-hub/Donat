@@ -98,6 +98,11 @@ create index if not exists idx_tx_user on tx(user_id);
 create index if not exists idx_topups_status on topups(status);
 `);
 
+// Xarid so'rovi kaliti: bir xil so'rov qayta yuborilsa ikkinchi buyurtma yaratilmaydi
+if (!db.prepare('pragma table_info(orders)').all().some((c) => c.name === 'request_key'))
+  db.exec('alter table orders add column request_key text');
+db.exec('create unique index if not exists idx_orders_request on orders(user_id, request_key) where request_key is not null');
+
 export function getSetting(key) {
   const r = db.prepare('select value from settings where key=?').get(key);
   return r ? r.value : DEFAULT_SETTINGS[key] ?? '';
