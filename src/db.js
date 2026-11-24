@@ -131,7 +131,23 @@ export function upsertUser(u, refBy = null) {
       "insert into users(id,username,first_name,last_name,ref_by,last_seen) values(?,?,?,?,?,datetime('now'))",
     ).run(u.id, u.username || null, u.first_name || '', u.last_name || '', refBy && refBy !== u.id ? refBy : null);
   }
+  // Admin hech qachon bloklangan holatda qolmasin (aks holda admin panelga kira olmaydi)
+  if (existing?.banned && isAdmin(u.id)) db.prepare('update users set banned=0 where id=?').run(u.id);
   return { user: getUser(u.id), isNew: !existing };
+}
+
+// Foydalanuvchini bloklash / blokdan chiqarish. Adminni bloklab bo'lmaydi.
+export function setBanned(id, banned) {
+  const uid = Number(id);
+  if (banned && isAdmin(uid)) throw new AppError('Adminni bloklab bo‘lmaydi', 'forbidden', 403);
+  db.prepare('update users set banned=? where id=?').run(banned ? 1 : 0, uid);
+}
+
+// Bloklangan adminlarni blokdan chiqarish (ishga tushganda va admin qo'shilganda)
+export function unbanAdmins() {
+  const ids = adminIds();
+  if (!ids.length) return 0;
+  return db.prepare(`update users set banned=0 where banned=1 and id in (${ids.map(() => '?').join(',')})`).run(...ids).changes;
 }
 
 export class AppError extends Error {

@@ -693,7 +693,7 @@ try { tg?.BackButton?.onClick(() => history.back()); } catch {}
     $view.innerHTML = `<div class="empty" style="padding-top:90px"><img src="/logo.jpg" style="width:120px;border-radius:28px;margin:0 auto 20px"><b>${e.code === 'auth' ? 'Telegram orqali oching' : 'Xatolik'}</b>${h(e.message)}</div>`;
     return;
   }
-  if (state.me.user.banned) { $view.innerHTML = '<div class="empty"><div class="ei">⛔</div><b>Hisobingiz bloklangan</b></div>'; return; }
+  if (state.me.user.banned && !state.me.isAdmin) { $view.innerHTML = '<div class="empty"><div class="ei">⛔</div><b>Hisobingiz bloklangan</b></div>'; return; }
   window.addEventListener('hashchange', route);
   route();
 })();

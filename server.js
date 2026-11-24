@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import { env, SETTING_KEYS } from './src/config.js';
-import { db, upsertUser, getUser, allSettings, setSetting, changeBalance, allOverrides, getOverride, AppError, activeCards, isAdmin, isOwner, extraAdminIds } from './src/db.js';
+import { db, upsertUser, getUser, allSettings, setSetting, changeBalance, allOverrides, getOverride, AppError, activeCards, isAdmin, isOwner, extraAdminIds, setBanned, unbanAdmins } from './src/db.js';
 import * as d24 from './src/d24.js';
 import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
@@ -241,7 +241,7 @@ ad.post('/users/:id/balance', wrap(async (req, res) => {
   res.json({ ok: true, balance });
 }));
 ad.post('/users/:id/ban', wrap(async (req, res) => {
-  db.prepare('update users set banned=? where id=?').run(req.body?.banned ? 1 : 0, Number(req.params.id));
+  setBanned(req.params.id, !!req.body?.banned);
   res.json({ ok: true });
 }));
 
@@ -417,6 +417,7 @@ ad.post('/admins', wrap(async (req, res) => {
   const u = findUser(req.body?.id);
   if (!u) throw new AppError('Telegram ID ni kiriting');
   setSetting('admin_ids', [...new Set([...extraAdminIds(), u.id])].join(','));
+  unbanAdmins();
   setAdminCommands(u.id).catch(() => {});
   send(u.id, '⚙️ Siz admin etib tayinlandingiz. /admin — admin panel.').catch(() => {});
   res.json({ ok: true, admins: adminList() });
@@ -447,6 +448,8 @@ api.use('/admin', ad);
 app.use('/api', api);
 
 app.listen(env.PORT, () => {
+  const unbanned = unbanAdmins();
+  if (unbanned) console.log(`[admin] ${unbanned} ta admin blokdan chiqarildi`);
   console.log(`[web] :${env.PORT}  PUBLIC_URL=${env.PUBLIC_URL || '(yo‘q)'}`);
   startBot();
   startPoller();
