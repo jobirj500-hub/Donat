@@ -99,7 +99,7 @@ function bindSearch(id, onChange, delay = 120) {
   x.onclick = (e) => { e.preventDefault(); inp.value = ''; fire(); inp.focus(); };
   x.hidden = !inp.value;
 }
-const gamesGrid = (list) => list.length ? `<div class="grid">${list.map(gameTile).join('')}</div>` : '<div class="empty"><div class="ei">🔎</div><b>Topilmadi</b>Boshqacha yozib ko‘ring: masalan «pubg», «ff», «mlbb»</div>';
+const gamesGrid = (list) => list.length ? `<div class="grid">${list.map(gameTile).join('')}</div>` : '<div class="empty"><div class="ei"><img src="/search.webp" alt=""></div><b>Topilmadi</b>Boshqacha yozib ko‘ring: masalan «pubg», «ff», «mlbb»</div>';
 async function loadGames() { if (!state.games) state.games = (await api('/games')).games; return state.games; }
 async function refreshMe() { state.me = await api('/me'); return state.me; }
 
@@ -159,7 +159,7 @@ pages.home = async () => {
     <div class="hrow" id="pop">${Array.from({ length: 5 }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>
     ${searchBox('hq', 'O‘yinni qidiring: pubg, ff, mlbb, stars…')}
     <div id="all"></div>
-    <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">🏆</span><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
+    <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><img src="/trophy.webp" alt="" style="width:44px;height:44px;border-radius:12px"><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
   document.getElementById('help').onclick = () => openLink(settings.support_url);
   document.getElementById('theme').onclick = (e) => { haptic(); toggleTheme(); e.currentTarget.innerHTML = theme === 'dark' ? I.moon : I.sun; };
   bindSlider();
@@ -211,7 +211,7 @@ pages.game = async (slug) => {
     <div class="sec" style="margin-top:14px"><h3>Paketni tanlang</h3></div>
     ${products.length > 10 ? searchBox('pq', 'Paketni qidiring: 60, 660 uc…') : ''}
     <div class="pk-grid" id="pk"></div>
-    ${products.length ? '' : '<div class="empty"><div class="ei">📦</div><b>Paketlar yo‘q</b>Bu o‘yin uchun hozircha paket mavjud emas</div>'}`;
+    ${products.length ? '' : '<div class="empty"><div class="ei"><img src="/box.webp" alt=""></div><b>Paketlar yo‘q</b>Bu o‘yin uchun hozircha paket mavjud emas</div>'}`;
   const pk = document.getElementById('pk');
   let pq = '';
   const draw = () => {
@@ -317,9 +317,9 @@ pages.orders = async () => {
   const ol = document.getElementById('ol');
   const draw = () => {
     if (tab === 'orders') {
-      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛍️</div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
+      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei"><img src="/bag.webp" alt=""></div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
     } else {
-      ol.innerHTML = data.tx.length ? `<div class="card list">${data.tx.map((t) => `<div class="li"><div class="th">${t.amount > 0 ? '⬇️' : '⬆️'}</div><div class="grow"><div class="t">${TX[t.type] || t.type}</div><div class="s">${h(t.note || '')} · ${date(t.created_at)}</div></div><div class="amt ${t.amount > 0 ? 'plus' : ''}">${t.amount > 0 ? '+' : ''}${num(t.amount)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">💸</div><b>Tranzaksiyalar yo‘q</b></div>';
+      ol.innerHTML = data.tx.length ? `<div class="card list">${data.tx.map((t) => `<div class="li"><div class="th">${t.amount > 0 ? '⬇️' : '⬆️'}</div><div class="grow"><div class="t">${TX[t.type] || t.type}</div><div class="s">${h(t.note || '')} · ${date(t.created_at)}</div></div><div class="amt ${t.amount > 0 ? 'plus' : ''}">${t.amount > 0 ? '+' : ''}${num(t.amount)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei"><img src="/money.webp" alt=""></div><b>Tranzaksiyalar yo‘q</b></div>';
     }
   };
   draw();
@@ -367,7 +367,7 @@ pages.profile = async () => {
 pages.top = async () => {
   $view.innerHTML = `<div class="page-title"><button class="back" onclick="history.back()">‹</button>Eng yaxshi donorlar</div><div id="tl">${spinner()}</div>`;
   const { top } = await api('/top');
-  document.getElementById('tl').innerHTML = top.length ? `<div class="card list">${top.map((t, i) => `<div class="li"><div class="th">${['🥇', '🥈', '🥉'][i] || i + 1}</div><div class="grow t">${h(t.name)}</div><div class="amt">${num(t.total)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🏆</div><b>Hali ro‘yxat bo‘sh</b>Birinchi bo‘ling!</div>';
+  document.getElementById('tl').innerHTML = top.length ? `<div class="card list">${top.map((t, i) => `<div class="li"><div class="th">${['🥇', '🥈', '🥉'][i] || i + 1}</div><div class="grow t">${h(t.name)}</div><div class="amt">${num(t.total)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei"><img src="/trophy.webp" alt=""></div><b>Hali ro‘yxat bo‘sh</b>Birinchi bo‘ling!</div>';
 };
 
 // ---------- ADMIN ----------
@@ -391,7 +391,7 @@ admin.stats = async (el) => {
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
   el.innerHTML = `<div class="chips" style="margin-top:0">${[['pending', 'Kutilmoqda'], ['approved', 'Tasdiqlangan'], ['rejected', 'Rad etilgan']].map(([k, t]) => `<button class="chip ${k === status ? 'on' : ''}" data-s="${k}">${t}</button>`).join('')}</div>
-    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-sm" data-r="${t.id}">🧾</button><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei">💳</div><b>So‘rovlar yo‘q</b></div>'}`;
+    ${topups.length ? `<div class="card list">${topups.map((t) => `<div class="li" style="flex-wrap:wrap"><div class="grow"><div class="t">#${t.id} · ${som(t.amount)}</div><div class="s">${h(t.first_name || '')} ${t.username ? '@' + h(t.username) : ''} · ${t.user_id} · ${date(t.created_at)}</div></div>${t.status === 'pending' ? `<div style="display:flex;gap:6px"><button class="btn btn-sm" data-r="${t.id}">🧾</button><button class="btn btn-ok btn-sm" data-ok="${t.id}" data-a="${t.amount}">✅</button><button class="btn btn-bad btn-sm" data-no="${t.id}">❌</button></div>` : `<span class="badge ${t.status}">${STATUS[t.status]}</span>`}</div>`).join('')}</div><div class="hint">🧾 — chek rasmini ko‘rish. Cheklar botga ham keladi (agar botda START bosgan bo‘lsangiz).</div>` : '<div class="empty"><div class="ei"><img src="/card.webp" alt=""></div><b>So‘rovlar yo‘q</b></div>'}`;
   el.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => admin.topups(el, b.dataset.s)));
   el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => {
     try {
@@ -412,7 +412,7 @@ admin.topups = async (el, status = 'pending') => {
 };
 admin.orders = async (el) => {
   const { orders } = await api('/admin/orders');
-  el.innerHTML = orders.length ? `<div class="card list">${orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">#${o.id} ${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)}${o.server_id ? '/' + h(o.server_id) : ''}</div><div class="s">${h(o.first_name || '')} ${o.username ? '@' + h(o.username) : ''} · ${date(o.created_at)}${o.d24_order_id ? ' · ' + h(o.d24_order_id) : ''}</div>${o.error ? `<div class="s badt">${h(o.error)}</div>` : ''}</div><div style="text-align:right"><div class="amt">${num(o.price)}</div><div class="s">tan: ${num(o.cost)}</div><button class="badge ${o.status}" data-r="${o.id}">${STATUS[o.status] || o.status} ⟳</button></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛒</div><b>Buyurtmalar yo‘q</b></div>';
+  el.innerHTML = orders.length ? `<div class="card list">${orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">#${o.id} ${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)}${o.server_id ? '/' + h(o.server_id) : ''}</div><div class="s">${h(o.first_name || '')} ${o.username ? '@' + h(o.username) : ''} · ${date(o.created_at)}${o.d24_order_id ? ' · ' + h(o.d24_order_id) : ''}</div>${o.error ? `<div class="s badt">${h(o.error)}</div>` : ''}</div><div style="text-align:right"><div class="amt">${num(o.price)}</div><div class="s">tan: ${num(o.cost)}</div><button class="badge ${o.status}" data-r="${o.id}">${STATUS[o.status] || o.status} ⟳</button></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei"><img src="/cart.webp" alt=""></div><b>Buyurtmalar yo‘q</b></div>';
   el.querySelectorAll('[data-r]').forEach((b) => (b.onclick = async () => { try { await api(`/admin/orders/${b.dataset.r}/refresh`, { method: 'POST' }); toast('Yangilandi'); admin.orders(el); } catch (e) { toast(e.message, 'bad'); } }));
 };
 admin.users = async (el, q = '') => {
@@ -608,7 +608,7 @@ admin.message = async (el) => {
 
 admin.cards = async (el) => {
   const { cards } = await api('/admin/cards');
-  el.innerHTML = `${cards.length ? cards.map((c) => `<div class="paycard" style="margin-bottom:10px;${c.active ? '' : 'opacity:.5'}"><div class="label">${h(c.bank || 'Karta')}${c.active ? '' : ' · o‘chirilgan'}</div><div class="num">${h(c.number)}</div><div class="hint" style="margin:0 0 10px">${h(c.holder || '')}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Tahrirlash</button><button class="btn btn-ghost btn-sm" data-tog="${c.id}">${c.active ? '⏸ O‘chirish' : '▶️ Yoqish'}</button><button class="btn btn-bad btn-sm" data-del="${c.id}">🗑️</button></div></div>`).join('') : '<div class="empty"><div class="ei">💳</div><b>Kartalar yo‘q</b>Mijozlar pul o‘tkazishi uchun karta qo‘shing</div>'}
+  el.innerHTML = `${cards.length ? cards.map((c) => `<div class="paycard" style="margin-bottom:10px;${c.active ? '' : 'opacity:.5'}"><div class="label">${h(c.bank || 'Karta')}${c.active ? '' : ' · o‘chirilgan'}</div><div class="num">${h(c.number)}</div><div class="hint" style="margin:0 0 10px">${h(c.holder || '')}</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" data-edit="${c.id}">✏️ Tahrirlash</button><button class="btn btn-ghost btn-sm" data-tog="${c.id}">${c.active ? '⏸ O‘chirish' : '▶️ Yoqish'}</button><button class="btn btn-bad btn-sm" data-del="${c.id}">🗑️</button></div></div>`).join('') : '<div class="empty"><div class="ei"><img src="/card.webp" alt=""></div><b>Kartalar yo‘q</b>Mijozlar pul o‘tkazishi uchun karta qo‘shing</div>'}
     <button class="btn btn-primary btn-block mt" id="cadd">＋ Karta qo‘shish</button>
     <div class="hint">Yoqilgan kartalarning hammasi «To‘ldirish» sahifasida ko‘rinadi.</div>`;
   const form = (c = {}) => {
@@ -660,7 +660,7 @@ async function route() {
     else if (page === 'admin') await pages.admin(arg || 'stats');
     else await (pages[page] || pages.home)();
   } catch (e) {
-    $view.innerHTML = `<div class="empty"><div class="ei">⚠️</div><b>Yuklab bo‘lmadi</b>${h(e.message)}<div class="mt"><button class="btn btn-primary" onclick="location.reload()">Qayta urinish</button></div></div>`;
+    $view.innerHTML = `<div class="empty"><div class="ei"><img src="/warn.webp" alt=""></div><b>Yuklab bo‘lmadi</b>${h(e.message)}<div class="mt"><button class="btn btn-primary" onclick="location.reload()">Qayta urinish</button></div></div>`;
   }
 }
 try { tg?.BackButton?.onClick(() => history.back()); } catch {}
@@ -673,7 +673,7 @@ try { tg?.BackButton?.onClick(() => history.back()); } catch {}
     $view.innerHTML = `<div class="empty" style="padding-top:90px"><img src="/logo.jpg" style="width:120px;border-radius:28px;margin:0 auto 20px"><b>${e.code === 'auth' ? 'Telegram orqali oching' : 'Xatolik'}</b>${h(e.message)}</div>`;
     return;
   }
-  if (state.me.user.banned) { $view.innerHTML = '<div class="empty"><div class="ei">⛔</div><b>Hisobingiz bloklangan</b></div>'; return; }
+  if (state.me.user.banned) { $view.innerHTML = '<div class="empty"><div class="ei"><img src="/ban.webp" alt=""></div><b>Hisobingiz bloklangan</b></div>'; return; }
   window.addEventListener('hashchange', route);
   route();
 })();
