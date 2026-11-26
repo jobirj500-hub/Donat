@@ -98,11 +98,6 @@ create index if not exists idx_tx_user on tx(user_id);
 create index if not exists idx_topups_status on topups(status);
 `);
 
-// Xarid so'rovi kaliti: bir xil so'rov qayta yuborilsa ikkinchi buyurtma yaratilmaydi
-if (!db.prepare('pragma table_info(orders)').all().some((c) => c.name === 'request_key'))
-  db.exec('alter table orders add column request_key text');
-db.exec('create unique index if not exists idx_orders_request on orders(user_id, request_key) where request_key is not null');
-
 export function getSetting(key) {
   const r = db.prepare('select value from settings where key=?').get(key);
   return r ? r.value : DEFAULT_SETTINGS[key] ?? '';
@@ -131,23 +126,7 @@ export function upsertUser(u, refBy = null) {
       "insert into users(id,username,first_name,last_name,ref_by,last_seen) values(?,?,?,?,?,datetime('now'))",
     ).run(u.id, u.username || null, u.first_name || '', u.last_name || '', refBy && refBy !== u.id ? refBy : null);
   }
-  // Admin hech qachon bloklangan holatda qolmasin (aks holda admin panelga kira olmaydi)
-  if (existing?.banned && isAdmin(u.id)) db.prepare('update users set banned=0 where id=?').run(u.id);
   return { user: getUser(u.id), isNew: !existing };
-}
-
-// Foydalanuvchini bloklash / blokdan chiqarish. Adminni bloklab bo'lmaydi.
-export function setBanned(id, banned) {
-  const uid = Number(id);
-  if (banned && isAdmin(uid)) throw new AppError('Adminni bloklab bo‘lmaydi', 'forbidden', 403);
-  db.prepare('update users set banned=? where id=?').run(banned ? 1 : 0, uid);
-}
-
-// Bloklangan adminlarni blokdan chiqarish (ishga tushganda va admin qo'shilganda)
-export function unbanAdmins() {
-  const ids = adminIds();
-  if (!ids.length) return 0;
-  return db.prepare(`update users set banned=0 where banned=1 and id in (${ids.map(() => '?').join(',')})`).run(...ids).changes;
 }
 
 export class AppError extends Error {
@@ -199,3 +178,24 @@ export const fixedPrices = (slug) => {
   for (const r of db.prepare('select product_id, price from product_prices where slug=?').all(slug)) m[r.product_id] = r.price;
   return m;
 };
+
+// Buyurtmani baholash (1–5 yulduz). Faqat o'z, yetkazilgan buyurtmasini baholay oladi.
+try { db.exec('alter table orders add column rating integer'); } catch {}
+export function rateOrder(userId, orderId, stars) {
+  const r = Math.trunc(Number(stars));
+  if (!(r >= 1 && r <= 5)) throw new AppError('Baho 1 dan 5 gacha bo‘lishi kerak');
+  const o = db.prepare('select id,user_id,status from orders where id=?').get(Number(orderId));
+  if (!o || o.user_id !== Number(userId)) throw new AppError('Buyurtma topilmadi', 'not_found', 404);
+  if (o.status !== 'delivered') throw new AppError('Faqat yetkazilgan buyurtmani baholash mumkin');
+  db.prepare('update orders set rating=? where id=?').run(r, o.id);
+  return r;
+}
+// O'yin reytingi: baholar o'rtachasi, baho bo'lmasa 5
+export function gameRatings() {
+  const m = {};
+  for (const x of db.prepare('select game_slug s, avg(rating) a from orders where rating is not null group by game_slug').all()) m[x.s] = Math.round(x.a * 10) / 10;
+  return m;
+}
+export const unratedOrders = (userId) => db.prepare(
+  "select id,game_slug,game_name,game_image,product_name from orders where user_id=? and status='delivered' and rating is null and created_at > datetime('now','-30 days') order by id desc limit 10",
+).all(Number(userId));

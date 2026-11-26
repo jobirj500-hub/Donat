@@ -3,14 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import { env, SETTING_KEYS } from './src/config.js';
-import { db, upsertUser, getUser, allSettings, setSetting, changeBalance, allOverrides, getOverride, AppError, activeCards, isAdmin, isOwner, extraAdminIds, setBanned, unbanAdmins } from './src/db.js';
+import { db, upsertUser, getUser, allSettings, setSetting, changeBalance, allOverrides, getOverride, AppError, activeCards, isAdmin, isOwner, extraAdminIds, rateOrder, gameRatings, unratedOrders } from './src/db.js';
 import * as d24 from './src/d24.js';
 import { verifyInitData } from './src/auth.js';
 import { placeOrder, priceProducts, refreshOrder, handleWebhook, startPoller, webhookSecret } from './src/orders.js';
 import { createTopup, decideTopup, receiptFile } from './src/topups.js';
-import { startBot, botUsername, broadcast, broadcastState, setAdminCommands, handleUpdate, tgWebhookSecret } from './src/bot.js';
+import { startBot, broadcast, broadcastState, setAdminCommands, handleUpdate, tgWebhookSecret } from './src/bot.js';
 import { send, sendRich, esc, fmt } from './src/telegram.js';
-import { pendingRating, rateOrder } from './src/ratings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -22,9 +21,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const WELCOME_FILE = path.join(env.DATA_DIR, 'welcome.jpg');
 app.get('/media/welcome.jpg', (_req, res) => (fs.existsSync(WELCOME_FILE) ? res.sendFile(path.resolve(WELCOME_FILE)) : res.status(404).end()));
 app.get('/', (_req, res) => res.redirect('/app'));
-// index.html keshlanmaydi — Telegram yangi versiyani darhol oladi (js/css ?v= bilan yangilanadi)
-const noCacheHtml = (res, file) => { if (file.endsWith('.html')) res.setHeader('Cache-Control', 'no-cache'); };
-app.use('/app', express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: '5m', setHeaders: noCacheHtml }));
+app.use('/app', express.static(path.join(__dirname, 'public'), { index: 'index.html', maxAge: '5m' }));
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '1h' }));
 
 // Telegram webhook (bot xabarlari)
@@ -88,15 +85,12 @@ api.get('/me', wrap(async (req, res) => {
     ok: true,
     user: { id: u.id, username: u.username, first_name: u.first_name, last_name: u.last_name, balance: u.balance, banned: !!u.banned, photo_url: req.tgUser.photo_url || null },
     isAdmin: req.isAdmin,
-    bot_username: await botUsername(),
     settings: publicSettings(),
     stats: {
       orders: db.prepare('select count(*) c from orders where user_id=?').get(u.id).c,
       refs: db.prepare('select count(*) c from users where ref_by=?').get(u.id).c,
-      ref_paid: db.prepare("select count(*) c from tx where user_id=? and type='ref'").get(u.id).c,
-      ref_earned: db.prepare("select coalesce(sum(amount),0) s from tx where user_id=? and type='ref'").get(u.id).s,
     },
-    rate_order: pendingRating(u.id),
+    toRate: unratedOrders(u.id),
   });
 }));
 
@@ -112,7 +106,8 @@ function visibleGames(list, includeHidden = false) {
 }
 
 api.get('/games', wrap(async (_req, res) => {
-  const games = visibleGames(await d24.games()).map(({ slug, name, image_url, popular, id_type, needs_server_id }) => ({ slug, name, image_url, popular, id_type, needs_server_id }));
+  const rt = gameRatings();
+  const games = visibleGames(await d24.games()).map(({ slug, name, image_url, popular, id_type, needs_server_id }) => ({ slug, name, image_url, popular, id_type, needs_server_id, rating: rt[slug] ?? 5 }));
   res.json({ ok: true, games });
 }));
 
@@ -140,15 +135,16 @@ api.post('/orders', wrap(async (req, res) => {
   res.json({ ok: true, order, balance: getUser(req.user.id).balance });
 }));
 
+api.post('/orders/:id/rate', wrap(async (req, res) => {
+  const rating = rateOrder(req.user.id, req.params.id, req.body?.rating);
+  res.json({ ok: true, rating, toRate: unratedOrders(req.user.id) });
+}));
+
 api.get('/orders', wrap(async (req, res) => {
-  const orders = db.prepare('select o.*, r.stars as rating from orders o left join order_ratings r on r.order_id=o.id where o.user_id=? order by o.id desc limit 100').all(req.user.id);
+  const orders = db.prepare('select * from orders where user_id=? order by id desc limit 100').all(req.user.id);
   const tx = db.prepare('select * from tx where user_id=? order by id desc limit 100').all(req.user.id);
   const topups = db.prepare('select id,amount,status,created_at from topups where user_id=? order by id desc limit 30').all(req.user.id);
   res.json({ ok: true, orders, tx, topups });
-}));
-
-api.post('/orders/:id/rate', wrap(async (req, res) => {
-  res.json({ ok: true, ...rateOrder(req.user.id, req.params.id, req.body?.stars) });
 }));
 
 api.post('/topups', wrap(async (req, res) => {
@@ -241,7 +237,7 @@ ad.post('/users/:id/balance', wrap(async (req, res) => {
   res.json({ ok: true, balance });
 }));
 ad.post('/users/:id/ban', wrap(async (req, res) => {
-  setBanned(req.params.id, !!req.body?.banned);
+  db.prepare('update users set banned=? where id=?').run(req.body?.banned ? 1 : 0, Number(req.params.id));
   res.json({ ok: true });
 }));
 
@@ -417,7 +413,6 @@ ad.post('/admins', wrap(async (req, res) => {
   const u = findUser(req.body?.id);
   if (!u) throw new AppError('Telegram ID ni kiriting');
   setSetting('admin_ids', [...new Set([...extraAdminIds(), u.id])].join(','));
-  unbanAdmins();
   setAdminCommands(u.id).catch(() => {});
   send(u.id, '⚙️ Siz admin etib tayinlandingiz. /admin — admin panel.').catch(() => {});
   res.json({ ok: true, admins: adminList() });
@@ -448,8 +443,6 @@ api.use('/admin', ad);
 app.use('/api', api);
 
 app.listen(env.PORT, () => {
-  const unbanned = unbanAdmins();
-  if (unbanned) console.log(`[admin] ${unbanned} ta admin blokdan chiqarildi`);
   console.log(`[web] :${env.PORT}  PUBLIC_URL=${env.PUBLIC_URL || '(yo‘q)'}`);
   startBot();
   startPoller();

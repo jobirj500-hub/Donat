@@ -27,16 +27,7 @@ export function priceProducts(slug, products) {
 
 const getOrder = (id) => db.prepare('select * from orders where id=?').get(id);
 
-const orderByRequest = (userId, key) => db.prepare('select * from orders where user_id=? and request_key=?').get(userId, key);
-
-export async function placeOrder(userId, { slug, product_id, player_id, server_id, request_key, max_price }) {
-  const key = request_key == null || request_key === '' ? null : String(request_key).trim();
-  if (key !== null && !/^[A-Za-z0-9-]{8,64}$/.test(key)) throw new AppError('So‘rov kaliti noto‘g‘ri', 'bad_request_key');
-  // Bir xil so'rov qayta kelsa (ikki marta bosish, tarmoq qayta urinishi) — o'sha buyurtmani qaytaramiz
-  if (key) {
-    const prev = orderByRequest(userId, key);
-    if (prev) return prev;
-  }
+export async function placeOrder(userId, { slug, product_id, player_id, server_id }) {
   if (getSetting('shop_open') !== '1') throw new AppError('Do‘kon vaqtincha yopiq', 'closed', 503);
   const user = getUser(userId);
   if (!user) throw new AppError('Foydalanuvchi topilmadi', 'no_user', 404);
@@ -55,28 +46,17 @@ export async function placeOrder(userId, { slug, product_id, player_id, server_i
   const prod = await d24.product(slug, product_id); // eng yangi narx
   const [priced] = priceProducts(slug, [prod]);
   const price = priced.price;
-  // Xaridor ko'rgan narxdan qimmat bo'lsa pul yechilmaydi
-  if (max_price != null && max_price !== '') {
-    const max = Number(max_price);
-    if (!Number.isFinite(max) || price > max)
-      throw new AppError(`Narx o‘zgardi: endi ${fmt(price)}. Qaytadan tanlang`, 'price_changed', 409);
-  }
 
   const orderId = db.transaction(() => {
-    if (key) {
-      const prev = orderByRequest(userId, key);
-      if (prev) return null;
-    }
     const info = db
       .prepare(
-        `insert into orders(user_id,game_slug,game_name,game_image,product_id,product_name,player_id,server_id,price,cost,status,request_key)
-         values(?,?,?,?,?,?,?,?,?,?, 'new',?)`,
+        `insert into orders(user_id,game_slug,game_name,game_image,product_id,product_name,player_id,server_id,price,cost,status)
+         values(?,?,?,?,?,?,?,?,?,?, 'new')`,
       )
-      .run(userId, slug, game.name, game.image_url, prod.id, prod.name, player_id, server_id, price, prod.price_uzs, key);
+      .run(userId, slug, game.name, game.image_url, prod.id, prod.name, player_id, server_id, price, prod.price_uzs);
     changeBalance(userId, -price, 'order', 'O' + info.lastInsertRowid, `${game.name} — ${prod.name}`);
     return info.lastInsertRowid;
   })();
-  if (orderId === null) return orderByRequest(userId, key);
 
   await submitToD24(orderId);
   const order = getOrder(orderId);

@@ -1,20 +1,34 @@
 import { searchGames, searchProducts } from './search.js?v=2';
-import { referralTerms } from './referral.js?v=1';
-import { icon, starOutline } from './icons.js?v=2';
-import { lang, setLang, startI18n } from './i18n.js?v=2';
-import { referralLink, copyText } from './share.js?v=2';
-startI18n();
 const tg = window.Telegram?.WebApp;
-// Mavzu (yorug'/qorong'i) — tanlov qurilmada saqlanadi
-const THEME_KEY = 'donat_theme';
-let theme = (() => { try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } })();
-function applyTheme() {
-  document.documentElement.dataset.theme = theme;
-  const c = theme === 'dark' ? '#17151f' : '#f1f2f8';
+try { tg?.ready(); tg?.expand(); } catch {}
+// ---------- theme (default: light, like PayerPin) ----------
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const c = t === 'dark' ? '#0b0e1a' : '#eef0f6';
   try { tg?.setHeaderColor?.(c); tg?.setBackgroundColor?.(c); tg?.setBottomBarColor?.(c); } catch {}
 }
-applyTheme();
-try { tg?.ready(); tg?.expand(); } catch {}
+let theme = (() => { try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; } })();
+applyTheme(theme);
+function toggleTheme() { theme = theme === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('theme', theme); } catch {} applyTheme(theme); }
+
+// ---------- icons (line style) ----------
+const svg = (d, w = 1.8) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const I = {
+  home: svg('<path d="M4 10.5 12 4l8 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19z"/><path d="M12 17.2s-3-1.8-3-3.9a1.6 1.6 0 0 1 3-.8 1.6 1.6 0 0 1 3 .8c0 2.1-3 3.9-3 3.9z"/>'),
+  games: svg('<path d="M7 8h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-6.3 2.1L14 14.7h-4l-.7.9A3.5 3.5 0 0 1 3 13.5V12a4 4 0 0 1 4-4z"/><path d="M8 11v3M6.5 12.5h3"/><circle cx="15.5" cy="11.5" r=".6" fill="currentColor"/><circle cx="17.5" cy="13.5" r=".6" fill="currentColor"/>'),
+  wallet: svg('<path d="M4 7.5V18a2 2 0 0 0 2 2h13a1 1 0 0 0 1-1v-3"/><path d="M20 12v-3a1 1 0 0 0-1-1H6a2 2 0 0 1 0-4h11v4"/><path d="M16 12h5v4h-5a2 2 0 0 1 0-4z"/>'),
+  clock: svg('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>'),
+  user: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.2a6.5 6.5 0 0 1 11 0"/>'),
+  gear: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  money: svg('<rect x="3" y="6.5" width="18" height="11" rx="2"/><circle cx="12" cy="12" r="2.4"/><path d="M6.5 9.5v5M17.5 9.5v5"/><path d="M5 4.5h14" opacity=".5"/>'),
+  ticket: svg('<path d="M4 6h16v3.5a2.5 2.5 0 0 0 0 5V18H4v-3.5a2.5 2.5 0 0 0 0-5z"/><path d="M9 9.5h6M9 12h6M9 14.5h4"/>'),
+  headset: svg('<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3.5" y="13" width="4" height="6" rx="1.5"/><rect x="16.5" y="13" width="4" height="6" rx="1.5"/><path d="M18.5 19a3 3 0 0 1-3 2.5H13"/>'),
+  sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>'),
+  moon: svg('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>'),
+  search: svg('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', 2),
+  star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.8 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3L12 17.1l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/></svg>',
+};
+
 
 const $view = document.getElementById('view');
 const $nav = document.getElementById('nav');
@@ -53,9 +67,9 @@ const spinner = () => '<div class="spin"></div>';
 
 // ---------- nav ----------
 function renderNav(active) {
-  const items = [['#/', 'home', 'Asosiy'], ['#/games', 'games', 'O‘yinlar'], ['#/topup', 'wallet', 'To‘ldirish'], ['#/orders', 'clock', 'Buyurtmalar'], ['#/profile', 'user', 'Profil']];
-  if (state.me?.isAdmin) items.push(['#/admin', 'settings', 'Admin']);
-  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}"><span class="ni">${icon(i)}</span>${t}</a>`).join('');
+  const items = [['#/', I.home, 'Asosiy'], ['#/games', I.games, 'O‘yinlar'], ['#/topup', I.wallet, 'To‘ldirish'], ['#/orders', I.clock, 'Buyurtmalar'], ['#/profile', I.user, 'Profil']];
+  if (state.me?.isAdmin) items.push(['#/admin', I.gear, 'Admin']);
+  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}">${i}${t}</a>`).join('');
 }
 
 // ---------- sheet ----------
@@ -65,25 +79,17 @@ function sheet(html) {
   return $sheet.querySelector('.sheet');
 }
 const closeSheet = () => { $sheet.innerHTML = ''; };
-// Nusxalaydi; telefon ruxsat bermasa — matnni belgilab ko'rsatadi, qo'lda nusxalash uchun
-async function copyOrShow(text, okMsg) {
-  if (await copyText(text)) return toast(okMsg, 'ok');
-  const el = sheet(`<b>Nusxalash</b><div class="hint">Matnni bosib turing va «Копировать / Nusxalash» ni tanlang.</div><input class="inp mt" id="cpv" readonly data-raw value="${h(text)}"><button class="btn btn-primary mt" id="cpx" style="width:100%">Yopish</button>`);
-  const inp = el.querySelector('#cpv');
-  setTimeout(() => { inp.focus(); inp.select(); inp.setSelectionRange(0, text.length); }, 50);
-  el.querySelector('#cpx').onclick = closeSheet;
-}
 
 // ---------- shared blocks ----------
 function balanceCard() {
-  return `<div class="card balance"><div class="ic">${icon('cash')}</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">${icon('plus')}To‘ldirish</a></div>`;
+  return `<div class="card balance"><div class="ic">${I.money}</div><div class="grow"><div class="label">Balans</div><div class="sum">${num(state.me.user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div>`;
 }
 function gameTile(g) {
-  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}${g.popular ? `<span class="hot">${icon('star')}Top</span>` : ''}</div><span>${h(g.name)}</span></a>`;
+  return `<a class="g" href="#/game/${encodeURIComponent(g.slug)}"><div class="cv">${img(g.image_url, g.name)}<span class="hot"><b>★</b> ${g.rating == null || g.rating >= 5 ? 5 : Number(g.rating).toFixed(1)}</span></div><span>${h(g.name)}</span></a>`;
 }
 const skelGrid = (n = 8) => `<div class="grid">${Array.from({ length: n }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>`;
 function searchBox(id, ph) {
-  return `<label class="search">${icon('search')}<input id="${id}" placeholder="${h(ph)}" autocomplete="off" enterkeyhint="search"><button type="button" class="sx" data-clear="${id}" hidden>✕</button></label>`;
+  return `<label class="search">${I.search}<input id="${id}" placeholder="${h(ph)}" autocomplete="off" enterkeyhint="search"><button type="button" class="sx" data-clear="${id}" hidden>✕</button></label>`;
 }
 function bindSearch(id, onChange, delay = 120) {
   const inp = document.getElementById(id); const x = document.querySelector(`[data-clear="${id}"]`);
@@ -100,82 +106,74 @@ async function refreshMe() { state.me = await api('/me'); return state.me; }
 // ---------- pages ----------
 const pages = {};
 
+function rateCard() {
+  const list = state.me.toRate || [];
+  const el = document.getElementById('rate');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = ''; return; }
+  const o = list[0];
+  el.innerHTML = `<div class="card rate"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow" style="min-width:0"><div class="label">Buyurtmangizni baholang</div><div class="t">${h(o.product_name || o.game_name)}<small>1/${list.length}</small></div></div><div class="stars">${[1, 2, 3, 4, 5].map((n) => `<button data-r="${n}" aria-label="${n} yulduz">${I.star}</button>`).join('')}</div></div>`;
+  const btns = el.querySelectorAll('[data-r]');
+  btns.forEach((b) => {
+    b.onclick = async () => {
+      const n = Number(b.dataset.r); haptic();
+      btns.forEach((x) => x.classList.toggle('on', Number(x.dataset.r) <= n));
+      try { const r = await api(`/orders/${o.id}/rate`, { method: 'POST', body: { rating: n } }); state.me.toRate = r.toRate; state.games = null; toast('Rahmat! Bahoingiz qabul qilindi', 'ok'); setTimeout(rateCard, 500); }
+      catch (e) { toast(e.message, 'bad'); }
+    };
+  });
+}
+
+function slider(settings) {
+  const slides = [
+    `<div class="slide s1"><span class="orb"></span><h2>${h(settings.banner_title || 'Balansni to‘ldir, qulay narx')}</h2>${settings.banner_subtitle ? `<p>${h(settings.banner_subtitle)}</p>` : ''}<a class="btn" href="#/topup">To‘ldirish</a></div>`,
+    `<div class="slide s2"><span class="orb"></span><img src="/logo.jpg" alt=""><h2>PUBG UC, Free Fire olmos va boshqalar</h2><a class="btn" href="#/games">O‘yinlarni ko‘rish</a></div>`,
+    `<div class="slide s3"><span class="orb"></span><h2>Telegram Stars va Premium</h2><p>Tez va xavfsiz yetkazib beramiz</p><a class="btn" href="#/game/telegram-stars">Sotib olish</a></div>`,
+  ];
+  return `<div class="slider"><div class="slides" id="slides">${slides.join('')}</div><div class="dots" id="dots">${slides.map((_, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div></div>`;
+}
+function bindSlider() {
+  const box = document.getElementById('slides'); const dots = document.querySelectorAll('#dots i');
+  if (!box) return;
+  let idx = 0;
+  const mark = () => { idx = Math.round(box.scrollLeft / box.clientWidth); dots.forEach((d, i) => d.classList.toggle('on', i === idx)); };
+  box.addEventListener('scroll', () => requestAnimationFrame(mark), { passive: true });
+  clearInterval(bindSlider._t);
+  bindSlider._t = setInterval(() => {
+    if (!document.body.contains(box)) return clearInterval(bindSlider._t);
+    box.scrollTo({ left: ((idx + 1) % dots.length) * box.clientWidth, behavior: 'smooth' });
+  }, 4500);
+}
+
 pages.home = async () => {
   const { user, settings } = state.me;
-  const name = user.first_name || user.username || 'do‘st';
-  const slides = [
-    { cls: 'green', title: settings.banner_title || 'Balansni to‘ldir, qulay narx', text: settings.banner_subtitle, btn: 'To‘ldirish', href: '#/topup', art: 'wallet' },
-    { cls: 'violet', title: 'Do‘stingni taklif qil — bonus ol', text: 'Havolangiz orqali kelgan do‘st birinchi marta to‘ldirsa, bonus sizga', btn: 'Taklif qilish', href: '#/profile', art: 'gift' },
-    { cls: 'sun', title: 'Eng yaxshi donorlar', text: 'Ko‘p donat qiling — top 100 talikka kiring', btn: 'Ko‘rish', href: '#/top', art: 'trophy' },
-  ];
+  const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'do‘st';
   $view.innerHTML = `
-    <div class="hello"><div class="avatar">${user.photo_url ? img(user.photo_url) : h(name[0]?.toUpperCase())}</div><div><small>Salom 👋</small><b>${h(name)}</b></div>
-      <div class="hello-actions"><button class="round" id="lng" aria-label="Til">${lang === 'ru' ? 'UZ' : 'RU'}</button><button class="round" id="thm" aria-label="Mavzu">${icon(theme === 'dark' ? 'moon' : 'sun')}</button></div></div>
+    <div class="hello"><div class="avatar">${state.me.user.photo_url ? img(state.me.user.photo_url) : h(name[0]?.toUpperCase())}</div><div class="grow"><small>Salom 👋</small><b>${h(name)}</b></div><button class="rbtn" id="theme" aria-label="Mavzuni almashtirish">${theme === 'dark' ? I.moon : I.sun}</button></div>
     ${balanceCard()}
-    <div class="row2"><a class="tile" href="#/profile"><span class="e">${icon('ticket')}</span>Promokodlar</a><button class="tile" id="help"><span class="e">${icon('headset')}</span>Yordam</button></div>
-    ${settings.shop_open ? '' : '<div class="notice">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
-    <div class="carousel"><div class="slides" id="slides">${slides.map((b) => `<div class="slide ${b.cls}"><img class="art-big" src="/media/${b.art}.webp" alt=""><h2>${h(b.title)}</h2>${b.text ? `<p>${h(b.text)}</p>` : ''}<a class="btn btn-light" href="${b.href}">${h(b.btn)}</a></div>`).join('')}</div><div class="dots" id="dots">${slides.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('')}</div></div>
-    ${state.me.rate_order ? rateCard(state.me.rate_order) : ''}
+    <div class="row2"><a class="tile" href="#/profile">${I.ticket}Promokodlar</a><button class="tile" id="help">${I.headset}Yordam</button></div>
+    ${settings.shop_open ? '' : '<div class="card mt badt">⚠️ Do‘kon vaqtincha yopiq. Tez orada qaytamiz!</div>'}
+    ${slider(settings)}
+    <div id="rate"></div>
+    <div class="sec"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
+    <div class="hrow" id="pop">${Array.from({ length: 5 }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div>
     ${searchBox('hq', 'O‘yinni qidiring: pubg, ff, mlbb, stars…')}
-    <div class="sec" id="popt"><h3>Ommabop o‘yinlar</h3><a href="#/games">Barchasi</a></div>
-    <div id="pop"><div class="hrow">${Array.from({ length: 5 }, () => '<div class="g"><div class="cv skel"></div><span class="skel" style="height:12px;border-radius:6px"></span></div>').join('')}</div></div>
-    <div id="more"></div>
-    <a class="card mt link-card" href="#/top"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span class="chev">${icon('chevron')}</span></a>`;
+    <div id="all"></div>
+    <a class="card mt" href="#/top" style="display:flex;align-items:center;gap:14px"><span style="font-size:28px">🏆</span><div class="grow"><b>Eng yaxshi donorlar</b><div class="hint" style="margin:2px 0 0">Eng yaxshi 100 talik</div></div><span style="color:var(--muted)">›</span></a>`;
   document.getElementById('help').onclick = () => openLink(settings.support_url);
-  document.getElementById('lng').onclick = () => { haptic(); setLang(lang === 'ru' ? 'uz' : 'ru'); };
-  document.getElementById('thm').onclick = (e) => {
-    haptic(); theme = theme === 'dark' ? 'light' : 'dark';
-    try { localStorage.setItem(THEME_KEY, theme); } catch {}
-    applyTheme(); e.currentTarget.innerHTML = icon(theme === 'dark' ? 'moon' : 'sun');
-  };
-  bindRating(state.me.rate_order);
-  // Banner karuseli: nuqtalar va avtomatik aylanish
-  const track = document.getElementById('slides'); const dots = [...document.querySelectorAll('#dots i')];
-  let cur = 0;
-  const mark = () => { cur = Math.round(track.scrollLeft / (track.clientWidth + 12)); dots.forEach((d, i) => d.classList.toggle('on', i === cur)); };
-  track.addEventListener('scroll', () => requestAnimationFrame(mark), { passive: true });
-  const timer = setInterval(() => {
-    if (!document.body.contains(track)) return clearInterval(timer);
-    track.scrollTo({ left: ((cur + 1) % slides.length) * (track.clientWidth + 12), behavior: 'smooth' });
-  }, 4500);
+  document.getElementById('theme').onclick = (e) => { haptic(); toggleTheme(); e.currentTarget.innerHTML = theme === 'dark' ? I.moon : I.sun; };
+  bindSlider();
+  rateCard();
   const games = await loadGames();
-  const pop = document.getElementById('pop'); const popt = document.getElementById('popt'); const more = document.getElementById('more');
   const popular = games.filter((g) => g.popular);
-  const featured = (popular.length >= 4 ? popular : games).slice(0, 12);
-  const rest = games.filter((g) => !featured.includes(g)).slice(0, 16);
+  document.getElementById('pop').innerHTML = (popular.length ? popular : games.slice(0, 10)).map(gameTile).join('');
+  const all = document.getElementById('all');
   const draw = (q) => {
-    popt.querySelector('h3').textContent = q ? 'Qidiruv natijasi' : 'Ommabop o‘yinlar';
-    if (q) { pop.innerHTML = gamesGrid(searchGames(games, q).slice(0, 40)); more.innerHTML = ''; return; }
-    pop.innerHTML = `<div class="hrow">${featured.map(gameTile).join('')}</div>`;
-    more.innerHTML = rest.length ? `<div class="sec"><h3>Barcha xizmatlar</h3><a href="#/games">Barchasi</a></div><div class="grid">${rest.map(gameTile).join('')}</div>` : '';
+    all.innerHTML = q ? gamesGrid(searchGames(games, q).slice(0, 40)) : `<a class="btn btn-ghost btn-block mt" href="#/games">🎮 Barcha ${games.length} ta o‘yinni ko‘rish</a>`;
   };
   draw('');
   bindSearch('hq', draw);
 };
-
-// ---------- buyurtma bahosi ----------
-function rateCard(o) {
-  return `<div class="card rate" id="rate"><div class="th">${img(o.game_image) || icon('games')}</div><div class="grow"><div class="label">Buyurtmangizni baholang</div><div class="t" data-raw>${h(o.product_name)}</div></div><div class="stars" role="group">${[1, 2, 3, 4, 5].map((n) => `<button data-star="${n}" aria-label="${n}">${starOutline}</button>`).join('')}</div></div>`;
-}
-function bindRating(o) {
-  const card = document.getElementById('rate'); if (!card || !o) return;
-  const btns = [...card.querySelectorAll('[data-star]')];
-  const paint = (n) => btns.forEach((b, i) => b.classList.toggle('on', i < n));
-  btns.forEach((b) => {
-    b.onpointerenter = () => paint(Number(b.dataset.star));
-    b.onclick = async () => {
-      const stars = Number(b.dataset.star); paint(stars); haptic();
-      btns.forEach((x) => (x.disabled = true));
-      try {
-        await api(`/orders/${o.id}/rate`, { method: 'POST', body: { stars } });
-        state.me.rate_order = null;
-        toast('Rahmat! Bahoingiz qabul qilindi', 'ok');
-        card.classList.add('done'); setTimeout(() => card.remove(), 400);
-      } catch (err) { toast(err.message, 'bad'); btns.forEach((x) => (x.disabled = false)); paint(0); }
-    };
-  });
-  card.querySelector('.stars').onpointerleave = () => paint(0);
-}
 
 pages.games = async () => {
   $view.innerHTML = `<div class="page-title">Barcha o‘yinlar</div>
@@ -257,12 +255,8 @@ function buySheet(game, p) {
     if (game.needs_server_id && !sid.value.trim()) return toast('Server ID ni kiriting', 'bad');
     if (state.me.user.balance < p.price) { toast('Balans yetarli emas', 'bad'); closeSheet(); return go('#/topup'); }
     b.disabled = true; b.textContent = 'Yuborilmoqda…';
-    const body = { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() };
-    // Kalit faqat ID/paket o'zgarsa yangilanadi — qayta bosish ikkinchi buyurtma yaratmaydi
-    const sig = JSON.stringify(body);
-    if (b.dataset.sig !== sig) { b.dataset.sig = sig; b.dataset.key = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12); }
     try {
-      const r = await api('/orders', { method: 'POST', body: { ...body, request_key: b.dataset.key, max_price: p.price } });
+      const r = await api('/orders', { method: 'POST', body: { slug: game.slug, product_id: p.id, player_id: pid.value.trim(), server_id: sid?.value.trim() } });
       state.me.user.balance = r.balance;
       closeSheet();
       if (r.order.status === 'refunded') toast('Buyurtma bajarilmadi, pul qaytarildi', 'bad');
@@ -287,7 +281,7 @@ pages.topup = async () => {
       <div class="hint">Admin chekni tekshirib, balansingizni to‘ldiradi. Odatda 5–30 daqiqa.</div>
     </div>
     <div class="sec"><h3>So‘rovlarim</h3></div><div class="card list" id="mine">${spinner()}</div>`;
-  document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => copyOrShow(b.dataset.copy.replace(/\s/g, ''), 'Nusxalandi')));
+  document.querySelectorAll('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy.replace(/\s/g, '')); toast('Nusxalandi', 'ok'); }));
   const amt = document.getElementById('amt');
   amt.oninput = () => { const v = amt.value.replace(/\D/g, ''); amt.value = v ? num(v) : ''; };
   document.getElementById('file').onchange = async (e) => {
@@ -323,7 +317,7 @@ pages.orders = async () => {
   const ol = document.getElementById('ol');
   const draw = () => {
     if (tab === 'orders') {
-      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t" data-raw>${h(o.product_name)}</div><div class="s" data-raw>${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span>${o.rating ? `<div class="myrate">${icon('star')}${o.rating}</div>` : ''}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛍️</div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
+      ol.innerHTML = data.orders.length ? `<div class="card list">${data.orders.map((o) => `<div class="li"><div class="th">${img(o.game_image) || '🎮'}</div><div class="grow"><div class="t">${h(o.product_name)}</div><div class="s">${h(o.game_name)} · ID ${h(o.player_id)} · #${o.id}</div><div class="s">${date(o.created_at)}${o.error && o.status === 'refunded' ? ' · ' + h(o.error) : ''}</div></div><div style="text-align:right"><div class="amt">${num(o.price)}</div><span class="badge ${o.status}">${STATUS[o.status] || o.status}</span></div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">🛍️</div><b>Buyurtmalar yo‘q</b>Birinchi buyurtma shu yerda ko‘rinadi</div>';
     } else {
       ol.innerHTML = data.tx.length ? `<div class="card list">${data.tx.map((t) => `<div class="li"><div class="th">${t.amount > 0 ? '⬇️' : '⬆️'}</div><div class="grow"><div class="t">${TX[t.type] || t.type}</div><div class="s">${h(t.note || '')} · ${date(t.created_at)}</div></div><div class="amt ${t.amount > 0 ? 'plus' : ''}">${t.amount > 0 ? '+' : ''}${num(t.amount)}</div></div>`).join('')}</div>` : '<div class="empty"><div class="ei">💸</div><b>Tranzaksiyalar yo‘q</b></div>';
     }
@@ -335,9 +329,7 @@ pages.orders = async () => {
 pages.profile = async () => {
   const { user, settings, stats } = state.me;
   const name = [user.first_name, user.last_name].filter(Boolean).join(' ') || user.username || 'Foydalanuvchi';
-  const bot = state.me.bot_username || tg?.initDataUnsafe?.receiver?.username;
-  const refLink = referralLink(bot, user.id);
-  const ref = referralTerms(settings, stats);
+  const bot = tg?.initDataUnsafe?.receiver?.username;
   const faq = [
     ['To‘lov qildim, lekin balansimga tushmadi', 'Chek yuborganingizdan so‘ng admin uni tekshiradi. Odatda 5–30 daqiqa ichida balansingiz to‘ldiriladi. Kechiksa, Yordam bo‘limiga yozing.'],
     ['Buyurtmam o‘yinga tushmadi. Qancha kutaman?', 'Ko‘pincha 1–5 daqiqa. Ba’zi o‘yinlarda biroz ko‘proq vaqt ketishi mumkin. Bajarilmasa pul avtomatik balansingizga qaytadi.'],
@@ -348,34 +340,21 @@ pages.profile = async () => {
     <div class="card profile"><div class="avatar">${user.photo_url ? img(user.photo_url) : h(name[0]?.toUpperCase())}</div><h2>${h(name)}</h2><div class="pill">${user.username ? '@' + h(user.username) : ''} <span>ID: <code>${user.id}</code></span></div>
       <div class="card balance mt" style="text-align:left"><div class="grow"><div class="label">Balans</div><div class="sum">${num(user.balance)}<span>so‘m</span></div></div><a class="btn btn-primary" href="#/topup">＋ To‘ldirish</a></div></div>
     <div class="card"><b>🎟️ Promokodlar</b><div class="inline mt"><input class="inp" id="promo" placeholder="PROMOKODNI KIRITING" style="text-transform:uppercase"><button class="btn btn-primary" id="act">Faollashtirish</button></div></div>
-    <div class="card refcard mt">
-      <div class="ref-head"><img class="ref-ic" src="/media/gift.webp" alt=""><div class="grow"><div class="label">Do‘st taklif qiling</div><b class="ref-title">${h(ref.headline)}</b></div></div>
-      <div class="ref-bonus ${ref.active ? '' : 'off'}"><div><div class="label">Bonus miqdori</div><div class="ref-sum">${h(ref.bonusText)}</div></div><div class="ref-note">${ref.active ? 'Do‘stingizning birinchi to‘ldiruvidan so‘ng' : 'Admin bonusni yoqqanda paydo bo‘ladi'}</div></div>
-      <div class="label mt">Bonus olish shartlari</div>
-      <ol class="ref-steps">${ref.steps.map((t) => `<li>${h(t)}</li>`).join('')}</ol>
-      <ul class="ref-rules">${ref.rules.map((t) => `<li>${h(t)}</li>`).join('')}</ul>
-      <div class="ref-stats"><div><b>${ref.invited}</b><span>Taklif qilingan</span></div><div><b>${ref.paid}</b><span>Bonus berilgan</span></div><div><b>${h(ref.earnedText)}</b><span>Jami bonus</span></div></div>
-      ${refLink ? `<div class="ref-link mt"><input class="inp" id="reflink" readonly data-raw value="${h(refLink)}" aria-label="Taklif havolasi"></div>` : ''}
-      <div class="ref-actions"><button class="btn btn-primary" id="ref">Havolani ulashish</button><button class="btn btn-ghost" id="refcopy">Nusxalash</button></div>
+    <div class="row2">
+      <button class="card" id="ref" style="text-align:left;margin:0"><div style="font-size:24px">🤝</div><b style="display:block;margin-top:8px">Do‘st taklif qiling</b><div class="hint" style="margin-top:4px">${settings.ref_bonus ? `Har biri uchun ${som(settings.ref_bonus)}` : 'Havolani ulashing'} · ${stats.refs} ta</div></button>
+      <a class="card" href="#/top" style="margin:0"><div style="font-size:24px">🏆</div><b style="display:block;margin-top:8px">Eng yaxshi donorlar</b><div class="hint" style="margin-top:4px">Eng yaxshi 100 talik</div></a>
     </div>
-    <a class="card mt list" href="#/top" style="display:block"><div class="li" style="padding:0"><div class="th"><img class="ref-th" src="/media/trophy.webp" alt=""></div><div class="grow"><div class="t">Eng yaxshi donorlar</div><div class="s">Eng yaxshi 100 talik</div></div><span>›</span></div></a>
     <div class="card mt list"><button class="li" id="sup" style="width:100%"><div class="th">🎧</div><div class="grow t" style="text-align:left">Yordam markazi</div><span>›</span></button>${settings.channel_url ? '<button class="li" id="chn" style="width:100%"><div class="th">📢</div><div class="grow t" style="text-align:left">Bizning kanal</div><span>›</span></button>' : ''}</div>
     <div class="sec"><h3>Tez-tez beriladigan savollar</h3></div>
     <div class="card list">${faq.map(([q, a]) => `<details class="faq"><summary>${q}</summary><p>${a}</p></details>`).join('')}</div>
     <div class="hint center mt">${h(settings.shop_name)} · Donat24 hamkori</div>`;
   document.getElementById('sup').onclick = () => openLink(settings.support_url);
   document.getElementById('chn')?.addEventListener('click', () => openLink(settings.channel_url));
-  document.getElementById('reflink')?.addEventListener('click', (e) => { e.target.select(); e.target.setSelectionRange(0, refLink.length); });
   document.getElementById('ref').onclick = () => {
-    if (!refLink) return toast('Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring', 'bad');
-    haptic();
-    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(refLink)}&text=${encodeURIComponent('O‘yinlarga arzon va tez donat!')}`);
-    else copyOrShow(refLink, 'Havola nusxalandi');
-  };
-  document.getElementById('refcopy').onclick = () => {
-    if (!refLink) return toast('Havola hozircha tayyor emas. Birozdan so‘ng qayta urinib ko‘ring', 'bad');
-    haptic();
-    copyOrShow(refLink, 'Havola nusxalandi');
+    if (!bot) return toast('Bot orqali oching');
+    const link = `https://t.me/${bot}?start=ref${user.id}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('O‘yinlarga arzon va tez donat!')}`);
+    else { navigator.clipboard?.writeText(link); toast('Havola nusxalandi', 'ok'); }
   };
   document.getElementById('act').onclick = async (e) => {
     const code = document.getElementById('promo').value.trim(); if (!code) return toast('Promokodni kiriting', 'bad');
@@ -405,8 +384,9 @@ admin.stats = async (el) => {
   const s = await api('/admin/stats');
   const st = (l, v) => `<div class="stat"><div class="label">${l}</div><b>${v}</b></div>`;
   el.innerHTML = `
-    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div><div class="hint" style="margin:0">Buyurtmalar shu balansdan to‘lanadi. Kam bo‘lsa donat24.uz da to‘ldiring.</div></div>
+    <div class="card paycard" style="margin-bottom:12px"><div class="label">Donat24 balansingiz</div><div class="num">${s.d24.error ? '<span class="badt" style="font-size:15px">' + h(s.d24.error) + '</span>' : som(s.d24.balance)}</div><div class="hint" style="margin:0">Buyurtmalar shu balansdan to‘lanadi.</div><button class="btn btn-block mt" id="d24top">💳 Donat24 balansini to‘ldirish</button></div>
     <div class="stats">${st('Foydalanuvchilar', num(s.users))}${st('Bugun yangi', num(s.usersToday))}${st('Kutilayotgan to‘lov', num(s.pendingTopups))}${st('Mijoz balanslari', som(s.balances))}${st('Buyurtmalar', `${num(s.ordersDelivered)} / ${num(s.ordersTotal)}`)}${st('Savdo (bugun)', som(s.revenueToday))}${st('Jami savdo', som(s.revenue))}${st('Foyda', som(s.profit))}${st('Tasdiqlangan to‘lovlar', som(s.topupsApproved))}</div>`;
+  el.querySelector('#d24top').onclick = () => sheet(`<b>💳 Donat24 balansini to‘ldirish</b><div class="hint" style="margin:8px 0 12px">Donat24 to‘ldirishni API orqali bermaydi — to‘lov ularning saytida qilinadi. Kerakli summani o‘tkazing, balans shu yerda avtomatik yangilanadi.</div><button class="btn btn-block" id="d24go">🌐 donat24.uz/balans ni ochish</button><button class="btn btn-ghost btn-block mt" id="d24sup">💬 Donat24 yordam (Telegram)</button>`); { const b = $sheet; b.querySelector('#d24go').onclick = () => openLink('https://donat24.uz/balans'); b.querySelector('#d24sup').onclick = () => openLink('https://t.me/RoxiySupport'); }
 };
 admin.topups = async (el, status = 'pending') => {
   const { topups } = await api('/admin/topups?status=' + status);
@@ -693,7 +673,7 @@ try { tg?.BackButton?.onClick(() => history.back()); } catch {}
     $view.innerHTML = `<div class="empty" style="padding-top:90px"><img src="/logo.jpg" style="width:120px;border-radius:28px;margin:0 auto 20px"><b>${e.code === 'auth' ? 'Telegram orqali oching' : 'Xatolik'}</b>${h(e.message)}</div>`;
     return;
   }
-  if (state.me.user.banned && !state.me.isAdmin) { $view.innerHTML = '<div class="empty"><div class="ei">⛔</div><b>Hisobingiz bloklangan</b></div>'; return; }
+  if (state.me.user.banned) { $view.innerHTML = '<div class="empty"><div class="ei">⛔</div><b>Hisobingiz bloklangan</b></div>'; return; }
   window.addEventListener('hashchange', route);
   route();
 })();
