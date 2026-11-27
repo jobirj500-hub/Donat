@@ -6,13 +6,13 @@ import { env } from './config.js';
 import crypto from 'node:crypto';
 
 export const STATUS_UZ = {
-  new: '⏳ Yuborilmoqda',
-  paid: '⏳ To‘landi',
-  sending: '🚚 Yetkazilmoqda',
-  delivered: '✅ Yetkazildi',
-  failed: '❌ Bajarilmadi',
-  refunded: '↩️ Pul qaytarildi',
-  unknown: '⚠️ Tekshirilmoqda',
+  new: 'Yuborilmoqda',
+  paid: 'To‘landi',
+  sending: 'Yetkazilmoqda',
+  delivered: 'Yetkazildi',
+  failed: 'Bajarilmadi',
+  refunded: 'Pul qaytarildi',
+  unknown: 'Tekshirilmoqda',
 };
 
 export const webhookSecret = () =>
@@ -61,7 +61,7 @@ export async function placeOrder(userId, { slug, product_id, player_id, server_i
   await submitToD24(orderId);
   const order = getOrder(orderId);
   notifyAdmins(
-    `🛒 <b>Yangi buyurtma #${order.id}</b>\n${userLabel(user)}\n🎮 ${esc(order.game_name)} — ${esc(order.product_name)}\n🆔 <code>${esc(order.player_id)}</code>${order.server_id ? ' / ' + esc(order.server_id) : ''}\n💰 ${fmt(order.price)} (tannarx ${fmt(order.cost)})\nHolat: ${STATUS_UZ[order.status] || order.status}${order.error ? '\n⚠️ ' + esc(order.error) : ''}`,
+    `<b>Yangi buyurtma #${order.id}</b>\n${userLabel(user)}\n${esc(order.game_name)} — ${esc(order.product_name)}\n<code>${esc(order.player_id)}</code>${order.server_id ? ' / ' + esc(order.server_id) : ''}\n${fmt(order.price)} (tannarx ${fmt(order.cost)})\nHolat: ${STATUS_UZ[order.status] || order.status}${order.error ? '\n' + esc(order.error) : ''}`,
   );
   return order;
 }
@@ -98,7 +98,7 @@ async function submitToD24(orderId) {
       e.code === 'insufficient_balance' ? 'Texnik sabab: yetkazib beruvchi balansi yetarli emas' : e.message;
     await refund(o.id, userMsg);
     if (e.code === 'insufficient_balance')
-      notifyAdmins('⚠️ <b>Donat24 balansingiz yetarli emas!</b> Buyurtmalar bajarilmayapti — Donat24 hisobini to‘ldiring.');
+      notifyAdmins('<b>Donat24 balansingiz yetarli emas!</b> Buyurtmalar bajarilmayapti — Donat24 hisobini to‘ldiring.');
   }
 }
 
@@ -116,7 +116,7 @@ async function refund(orderId, reason) {
   if (did)
     await send(
       did.user_id,
-      `↩️ <b>Buyurtma #${did.id} bajarilmadi</b>\n${esc(did.game_name)} — ${esc(did.product_name)}\n${fmt(did.price)} balansingizga qaytarildi.${reason ? '\nSabab: ' + esc(reason) : ''}`,
+      `<b>Buyurtma #${did.id} bajarilmadi</b>\n${esc(did.game_name)} — ${esc(did.product_name)}\n${fmt(did.price)} balansingizga qaytarildi.${reason ? '\nSabab: ' + esc(reason) : ''}`,
     );
 }
 
@@ -130,7 +130,7 @@ export async function applyStatus(orderId, remote) {
     db.prepare("update orders set status='delivered', error=null, updated_at=datetime('now') where id=?").run(o.id);
     await send(
       o.user_id,
-      `✅ <b>Buyurtma #${o.id} yetkazildi!</b>\n🎮 ${esc(o.game_name)} — ${esc(o.product_name)}\n🆔 <code>${esc(o.player_id)}</code>\nXaridingiz uchun rahmat!`,
+      `<b>Buyurtma #${o.id} yetkazildi!</b>\n${esc(o.game_name)} — ${esc(o.product_name)}\n<code>${esc(o.player_id)}</code>\nXaridingiz uchun rahmat!`,
     );
     return;
   }

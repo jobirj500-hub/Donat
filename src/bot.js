@@ -34,7 +34,7 @@ const webAppUrl = (path = '') => `${env.PUBLIC_URL}/app${path}`;
 function startKeyboard() {
   const rows = [];
   if (env.PUBLIC_URL.startsWith('https://'))
-    rows.push([{ text: '🛒 Xaridni boshlash', web_app: { url: webAppUrl() } }]);
+    rows.push([{ text: 'Xaridni boshlash', web_app: { url: webAppUrl() } }]);
   const row2 = [];
   const ch = getSetting('channel_url');
   const sp = getSetting('support_url');
@@ -59,9 +59,9 @@ async function sendStart(chatId, user) {
 async function setDescriptions() {
   const shop = getSetting('shop_name') || 'Donat';
   await tg('setMyDescription', {
-    description: `🎮 ${shop} — o‘yinlarga tez va xavfsiz donat.\n\nPUBG UC, Free Fire olmos, Mobile Legends, Telegram Stars va Premium, 200+ o‘yin.\n\n👇 Boshlash uchun «START» tugmasini bosing.`,
+    description: `${shop} — o‘yinlarga tez va xavfsiz donat.\n\nPUBG UC, Free Fire olmos, Mobile Legends, Telegram Stars va Premium, 200+ o‘yin.\n\nBoshlash uchun «START» tugmasini bosing.`,
   });
-  await tg('setMyShortDescription', { short_description: `🎮 ${shop}: PUBG, Free Fire, MLBB, Telegram Stars — tez va xavfsiz donat` });
+  await tg('setMyShortDescription', { short_description: `${shop}: PUBG, Free Fire, MLBB, Telegram Stars — tez va xavfsiz donat` });
 }
 
 async function onMessage(msg) {
@@ -76,16 +76,16 @@ async function onMessage(msg) {
   if (isAdmin(from.id)) {
     if (/^\/setphoto/.test(text) && msg.photo?.length) {
       setSetting('welcome_photo', msg.photo[msg.photo.length - 1].file_id);
-      return send(from.id, '✅ /start rasmi yangilandi.');
+      return send(from.id, '/start rasmi yangilandi.');
     }
     if (/^\/admin/.test(text)) {
-      return send(from.id, '⚙️ Admin panel:', {
-        reply_markup: { inline_keyboard: [[{ text: '⚙️ Admin panelni ochish', web_app: { url: webAppUrl('#/admin') } }]] },
+      return send(from.id, 'Admin panel:', {
+        reply_markup: { inline_keyboard: [[{ text: 'Admin panelni ochish', web_app: { url: webAppUrl('#/admin') } }]] },
       });
     }
   }
-  if (user.banned) return send(from.id, '⛔ Hisobingiz bloklangan.');
-  if (/^\/balans/.test(text)) return send(from.id, `💰 Balansingiz: <b>${fmt(user.balance)}</b>`);
+  if (user.banned) return send(from.id, 'Hisobingiz bloklangan.');
+  if (/^\/balans/.test(text)) return send(from.id, `Balansingiz: <b>${fmt(user.balance)}</b>`);
   return sendStart(from.id, user);
 }
 
@@ -97,10 +97,10 @@ async function onCallback(cq) {
   try {
     const res = await decideTopup(Number(m[2]), m[1] === 'ok', cq.from.id);
     const label = res.already
-      ? `ℹ️ Avval hal qilingan: ${res.t.status === 'approved' ? 'tasdiqlangan' : 'rad etilgan'}`
+      ? `Avval hal qilingan: ${res.t.status === 'approved' ? 'tasdiqlangan' : 'rad etilgan'}`
       : m[1] === 'ok'
-        ? `✅ Tasdiqlandi: +${fmt(res.t.amount)}`
-        : '❌ Rad etildi';
+        ? `Tasdiqlandi: +${fmt(res.t.amount)}`
+        : 'Rad etildi';
     await tg('answerCallbackQuery', { callback_query_id: cq.id, text: label });
     if (cq.message) {
       await tg('editMessageCaption', {

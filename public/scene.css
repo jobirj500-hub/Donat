@@ -1,0 +1,11 @@
+/* Qizil-pushti palitra + har bir bo'lim uchun alohida orqa fon */
+:root{--bg:oklch(.975 .012 355);--bg-2:oklch(.985 .008 355);--card:oklch(1 0 0 / .9);--card-2:oklch(.965 .018 355);--line:oklch(.91 .03 355);--text:oklch(.23 .02 15);--muted:oklch(.5 .03 355);--primary:oklch(.57 .21 18);--primary-2:oklch(.52 .2 12);--primary-soft:oklch(.57 .21 18 / .1);--accent-t:oklch(.57 .21 355);--grad:linear-gradient(135deg,oklch(.62 .22 22),oklch(.6 .22 355));--shadow-btn:0 10px 24px -8px oklch(.57 .21 18 / .45);--pay-grad:radial-gradient(120% 120% at 100% 0%,oklch(.75 .15 355) 0%,transparent 60%),linear-gradient(135deg,oklch(.58 .22 20),oklch(.5 .2 355));--hero-fade:oklch(.975 .012 355);--glass:oklch(1 0 0 / .82)}
+[data-theme="dark"]{--bg:oklch(.17 .02 355);--bg-2:oklch(.2 .022 355);--card:oklch(.23 .025 355 / .9);--card-2:oklch(.27 .03 355);--line:oklch(.33 .04 355);--text:oklch(.96 .006 355);--muted:oklch(.73 .025 355);--primary:oklch(.7 .17 12);--primary-2:oklch(.66 .18 10);--hero-fade:oklch(.17 .02 355);--glass:oklch(.23 .025 355 / .85)}
+html{background:var(--bg)}body{background:transparent!important}
+.scene-bg{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center top;transition:background-image .35s ease}
+.scene-bg:after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,color-mix(in oklab,var(--bg) 30%,transparent) 0%,color-mix(in oklab,var(--bg) 62%,transparent) 45%,color-mix(in oklab,var(--bg) 40%,transparent) 100%)}
+[data-theme="dark"] .scene-bg{filter:brightness(.35) saturate(1.2)}
+body[data-section="profile"] .scene-bg:after{background:linear-gradient(180deg,color-mix(in oklab,var(--bg) 45%,transparent),color-mix(in oklab,var(--bg) 78%,transparent) 40%,color-mix(in oklab,var(--bg) 55%,transparent))}
+.card,.li,.pk,.search,.tile,.seg{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.art{display:inline-block!important;width:1.25em;height:1.25em;object-fit:contain!important;vertical-align:-.25em;flex:none}
+.th .art{width:28px;height:28px}.ei .art{width:88px;height:88px}

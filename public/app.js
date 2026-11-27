@@ -1,10 +1,11 @@
+import './scene.js?v=1';
 import { searchGames, searchProducts } from './search.js?v=2';
 const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); } catch {}
 // ---------- theme (default: light, like PayerPin) ----------
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
-  const c = t === 'dark' ? '#0b0e1a' : '#eef0f6';
+  const c = t === 'dark' ? '#2a1419' : '#fbf1f4';
   try { tg?.setHeaderColor?.(c); tg?.setBackgroundColor?.(c); tg?.setBottomBarColor?.(c); } catch {}
 }
 let theme = (() => { try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; } })();

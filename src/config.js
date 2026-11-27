@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS = {
   card_bank: '',
   channel_url: '',
   support_url: '',
-  welcome_text: 'Xush kelibsiz, {name}! 👋\nO‘yinlarga tez va xavfsiz donat qilish uchun «Xaridni boshlash» tugmasini bosing.',
+  welcome_text: 'Xush kelibsiz, {name}! \nO‘yinlarga tez va xavfsiz donat qilish uchun «Xaridni boshlash» tugmasini bosing.',
   banner_title: 'O‘yinlarga donat — rasmiy va tezkor',
   banner_subtitle: 'Tez yetkazish • 100% xavfsiz • 24/7 yordam',
   welcome_photo: '',

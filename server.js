@@ -233,7 +233,7 @@ ad.post('/users/:id/balance', wrap(async (req, res) => {
   const amount = Math.round(Number(req.body?.amount));
   const balance = changeBalance(id, amount, 'admin', String(req.user.id), String(req.body?.note || 'Admin tomonidan'));
   if (req.body?.notify !== false)
-    await send(id, `${amount > 0 ? '💰 Balansingizga qo‘shildi' : '➖ Balansingizdan yechildi'}: <b>${fmt(Math.abs(amount))}</b>\nJoriy balans: <b>${fmt(balance)}</b>`);
+    await send(id, `${amount > 0 ? 'Balansingizga qo‘shildi' : 'Balansingizdan yechildi'}: <b>${fmt(Math.abs(amount))}</b>\nJoriy balans: <b>${fmt(balance)}</b>`);
   res.json({ ok: true, balance });
 }));
 ad.post('/users/:id/ban', wrap(async (req, res) => {
@@ -414,7 +414,7 @@ ad.post('/admins', wrap(async (req, res) => {
   if (!u) throw new AppError('Telegram ID ni kiriting');
   setSetting('admin_ids', [...new Set([...extraAdminIds(), u.id])].join(','));
   setAdminCommands(u.id).catch(() => {});
-  send(u.id, '⚙️ Siz admin etib tayinlandingiz. /admin — admin panel.').catch(() => {});
+  send(u.id, 'Siz admin etib tayinlandingiz. /admin — admin panel.').catch(() => {});
   res.json({ ok: true, admins: adminList() });
 }));
 ad.delete('/admins/:id', wrap(async (req, res) => {
