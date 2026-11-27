@@ -251,3 +251,14 @@ details.faq p { color: var(--muted); margin: 10px 0 0; font-size: 14px; line-hei
 .seg + .card { margin-top: 0; }
 
 .ei img{width:120px;height:120px;object-fit:cover;border-radius:28px;display:block;margin:0 auto}
+
+/* Katalog bo'limlari */
+.cat-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 18px}
+.cat-tabs button{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border:1px solid var(--line);border-radius:14px;background:var(--card);font-size:11px;font-weight:800;color:var(--muted)}
+.cat-tabs button img{width:34px;height:34px;object-fit:contain}
+.cat-tabs button.on{background:var(--grad);color:var(--on-primary);border-color:transparent;box-shadow:var(--shadow)}
+.cat-sec{margin-bottom:26px}
+.cat-head{display:flex;align-items:center;gap:10px;margin:0 0 12px;padding:10px 12px;border-radius:14px;background:var(--card);border:1px solid var(--line)}
+.cat-head h3{margin:0;font-size:16px;font-weight:800;flex:1}
+.cat-head span{font-size:12px;font-weight:800;color:var(--primary);background:var(--bg-2);padding:4px 9px;border-radius:999px}
+.cat-ic{width:36px;height:36px;object-fit:contain}

@@ -176,26 +176,36 @@ pages.home = async () => {
   bindSearch('hq', draw);
 };
 
+// O'yin / Telegram / Ilova bo'limlariga ajratish
+const CATS = [
+  ['game', 'O‘yinlar', 'loot'],
+  ['tg', 'Telegram', 'channel'],
+  ['app', 'Ilovalar va xizmatlar', 'card'],
+];
+const APP_RE = /spotify|netflix|youtube|discord|steam|apple|itunes|google ?play|tiktok|chatgpt|openai|playstation|psn|xbox|nintendo|vpn|instagram|zoom|canva|capcut|amazon|twitch|razer|gift ?card|yandex|kinopoisk|ivi|okko|vk|faceit/i;
+const catOf = (g) => { const t = `${g.name} ${g.slug}`; if (/telegram|stars|tg[-_ ]?premium/i.test(t)) return 'tg'; if (APP_RE.test(t)) return 'app'; return 'game'; };
+const catHead = ([, title, art], n) => `<div class="cat-head"><img class="cat-ic" src="/media/${art}.webp" alt=""><h3>${title}</h3><span>${n}</span></div>`;
+
 pages.games = async () => {
-  $view.innerHTML = `<div class="page-title">Barcha o‘yinlar</div>
+  const saved = sessionStorage.getItem('gcat') || 'all';
+  $view.innerHTML = `<div class="page-title">Katalog</div>
     ${searchBox('q', 'O‘yin yoki xizmat: pubg, ff, mlbb, stars…')}
-    <div class="chips" id="gs" style="margin-top:0"><button class="chip on" data-s="">⭐ Ommabop</button><button class="chip" data-s="az">A–Z</button><button class="chip" data-s="tg">✈️ Telegram</button></div>
-    <div class="hint" id="cnt" style="margin:4px 0 10px"></div>
+    <div class="cat-tabs" id="gs"><button data-c="all"><img src="/media/diamond.webp" alt="">Hammasi</button>${CATS.map(([k, t, a]) => `<button data-c="${k}"><img src="/media/${a}.webp" alt="">${t.split(' ')[0]}</button>`).join('')}</div>
     <div id="list">${skelGrid(16)}</div>`;
   const games = await loadGames();
-  const list = document.getElementById('list'); const cnt = document.getElementById('cnt');
-  let sort = ''; let q = sessionStorage.getItem('gq') || '';
+  const list = document.getElementById('list');
+  let cat = saved; let q = sessionStorage.getItem('gq') || '';
+  const mark = () => document.querySelectorAll('#gs button').forEach((x) => x.classList.toggle('on', x.dataset.c === cat));
   const draw = () => {
-    let f = searchGames(games, q);
-    if (!q && sort === 'az') f = [...f].sort((a, b) => a.name.localeCompare(b.name));
-    if (sort === 'tg') f = f.filter((g) => /telegram/i.test(g.name + g.slug));
-    cnt.textContent = q ? `«${q}» bo‘yicha ${f.length} ta topildi` : `${f.length} ta o‘yin va xizmat`;
-    list.innerHTML = gamesGrid(f);
+    const f = searchGames(games, q);
+    const shown = CATS.filter(([k]) => cat === 'all' || cat === k)
+      .map((c) => [c, f.filter((g) => catOf(g) === c[0])]).filter(([, l]) => l.length);
+    list.innerHTML = shown.length ? shown.map(([c, l]) => `<section class="cat-sec">${catHead(c, l.length)}${gamesGrid(l)}</section>`).join('') : gamesGrid([]);
   };
   document.getElementById('q').value = q;
-  draw();
+  mark(); draw();
   bindSearch('q', (v) => { q = v; sessionStorage.setItem('gq', v); draw(); });
-  document.querySelectorAll('#gs .chip').forEach((c) => (c.onclick = () => { sort = c.dataset.s; document.querySelectorAll('#gs .chip').forEach((x) => x.classList.toggle('on', x === c)); draw(); }));
+  document.querySelectorAll('#gs button').forEach((c) => (c.onclick = () => { haptic(); cat = c.dataset.c; sessionStorage.setItem('gcat', cat); mark(); draw(); }));
 };
 
 pages.game = async (slug) => {

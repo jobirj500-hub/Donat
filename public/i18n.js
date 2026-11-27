@@ -18,7 +18,7 @@ const D = {
   'Eng yaxshi 100 talik': 'Топ-100 лучших', 'Top': 'Топ',
   'O‘yinni qidiring: pubg, ff, mlbb, stars…': 'Найти игру: pubg, ff, mlbb, stars…', 'O‘yin yoki xizmat: pubg, ff, mlbb, stars…': 'Игра или сервис: pubg, ff, mlbb, stars…',
   'Paketni qidiring: 60, 660 uc…': 'Найти пакет: 60, 660 uc…', 'Paketni qidiring': 'Найти пакет',
-  'Barcha o‘yinlar': 'Все игры', '⭐ Ommabop': '⭐ Популярные', 'Topilmadi': 'Не найдено',
+  'Barcha o‘yinlar': 'Все игры', 'Katalog': 'Каталог', 'Hammasi': 'Все', 'Telegram': 'Telegram', 'Ilovalar': 'Приложения', 'Ilovalar va xizmatlar': 'Приложения и сервисы', '⭐ Ommabop': '⭐ Популярные', 'Topilmadi': 'Не найдено',
   'Boshqacha yozib ko‘ring: masalan «pubg», «ff», «mlbb»': 'Попробуйте иначе: например «pubg», «ff», «mlbb»',
   'Paketni tanlang': 'Выберите пакет', 'Bunday paket topilmadi': 'Такой пакет не найден', 'Paketlar yo‘q': 'Пакетов нет',
   'Bu o‘yin uchun hozircha paket mavjud emas': 'Для этой игры пока нет пакетов',
