@@ -1,4 +1,7 @@
 // Bo'limlar orqa foni, qizil-pushti palitra va emojilarni rasmga almashtirish.
+// Refresh the theme stylesheet in Telegram WebViews with an older cached copy.
+const themeCss = document.querySelector('link[href*="/app/pubg.css"]');
+if (themeCss) themeCss.href = '/app/pubg.css?v=2';
 const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/app/scene.css?v=1'; document.head.append(css);
 const bg = document.createElement('div'); bg.className = 'scene-bg'; bg.setAttribute('aria-hidden', 'true'); document.body.prepend(bg);
 const SECTIONS = { '': 'home', games: 'games', game: 'games', topup: 'topup', orders: 'orders', profile: 'profile', top: 'profile', admin: 'admin' };

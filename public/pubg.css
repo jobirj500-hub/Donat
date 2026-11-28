@@ -4,6 +4,7 @@
   --card: oklch(0.21 0.015 100 / .92); --card-2: oklch(0.26 0.02 105);
   --line: oklch(0.36 0.03 100); --text: oklch(0.94 0.02 90); --muted: oklch(0.7 0.03 95);
   --primary: oklch(0.8 0.16 78); --primary-2: oklch(0.74 0.16 70);
+  --on-primary: oklch(0.16 0.012 95);
   --primary-soft: oklch(0.8 0.16 78 / .14); --accent-t: oklch(0.82 0.16 80);
   --grad: linear-gradient(180deg, oklch(0.88 0.15 85), oklch(0.74 0.16 70));
   --pay-grad: linear-gradient(135deg, oklch(0.3 0.04 110), oklch(0.2 0.015 95));
@@ -18,7 +19,7 @@
   --cut-s: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   color-scheme: dark;
 }
-html, body { font-family: 'Rajdhani', system-ui, sans-serif !important; font-weight: 600; }
+html, body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; font-weight: 500; }
 html {
   background:
     repeating-linear-gradient(45deg, oklch(1 0 0 / .025) 0 2px, transparent 2px 14px),
@@ -28,12 +29,12 @@ html {
 
 /* sarlavhalar va raqamlar — Teko */
 .page-title, .hello b, .balance .sum, .sec h2, .cat-head, .hero h1, .profile h2, .stat b, .pk b, .g > span, .btn, .nav a, .seg button, .label, .badge, .pill, .chip {
-  font-family: 'Teko', sans-serif !important; letter-spacing: .04em; text-transform: uppercase; font-weight: 500 !important;
+  font-family: inherit !important; letter-spacing: 0; text-transform: none; font-weight: 700 !important;
 }
-.page-title { font-size: 38px !important; line-height: 1; }
+.page-title { font-size: 26px !important; line-height: 1.3; overflow-wrap: anywhere; }
 .page-title::before { content: ''; width: 6px; height: 26px; background: var(--primary); flex: none; }
-.balance .sum { font-size: 34px !important; color: var(--primary); }
-.hello b { font-size: 26px !important; }
+.balance .sum { font-size: 28px !important; color: var(--primary); white-space: normal; overflow-wrap: anywhere; line-height: 1.3; }
+.hello b { font-size: 21px !important; }
 
 /* kartalar — kesik burchak + oltin uchliklar */
 .card, .li, .pk, .tile, .g, .stat, .search, .paycard, .sheet, .inp, .field input, .field textarea, .seg, .slide, .chip, .pill, .badge, .toast {
@@ -52,7 +53,7 @@ html {
 .pk b { font-size: 30px !important; color: var(--primary); line-height: 1; }
 
 /* tugmalar — oltin, kesik, harbiy */
-.btn { border-radius: 0 !important; clip-path: var(--cut-s); font-size: 22px !important; line-height: 1; min-height: 48px; }
+.btn { border-radius: 4px !important; clip-path: none; font-size: 15px !important; line-height: 1.4; min-height: 44px; max-width: 100%; min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: center; }
 .btn-primary, .btn:not(.btn-ghost):not(.btn-bad):not(.btn-ok) { background: var(--grad) !important; color: oklch(0.16 0.012 95) !important; box-shadow: var(--shadow-btn) !important; }
 .btn-ghost { background: oklch(0.3 0.03 115) !important; color: var(--text) !important; border: 1px solid var(--line) !important; }
 .btn-bad { background: var(--bad) !important; color: oklch(0.98 0 0) !important; }
@@ -63,9 +64,10 @@ html {
 
 /* pastki menyu */
 .nav { background: oklch(0.14 0.01 95 / .96) !important; border-top: 2px solid oklch(0.8 0.16 78 / .45) !important; border-radius: 0 !important; clip-path: none !important; }
-.nav a { font-size: 17px !important; color: var(--muted) !important; }
-.nav a.on { color: var(--primary) !important; }
-.nav a.on svg { filter: drop-shadow(0 0 6px oklch(0.8 0.16 78 / .8)); }
+.nav a { font-size: 10px !important; line-height: 1.25; color: var(--muted) !important; padding: 8px 2px; min-width: 0; white-space: normal; text-align: center; }
+.nav a span { display: flex; align-items: center; justify-content: center; min-height: 28px; width: 100%; overflow-wrap: anywhere; }
+.nav a.on { color: var(--on-primary) !important; }
+.nav a.on svg { filter: none; }
 
 /* maydonlar */
 .inp, .field input, .field textarea, .search input { background: oklch(0.14 0.01 95) !important; border: 1px solid var(--line) !important; color: var(--text) !important; }
@@ -73,3 +75,36 @@ html {
 
 .toast { background: oklch(0.14 0.01 95) !important; border: 1px solid var(--primary) !important; color: var(--text) !important; }
 .hero, .slide { border-bottom: 2px solid var(--primary); }
+
+/* Content remains inside its container, including six-item admin navigation. */
+.card, .li, .pk, .tile, .g, .stat, .search, .paycard, .sheet, .inp, .seg, .chip, .pill, .badge, .toast { clip-path: none !important; }
+.balance { flex-wrap: wrap; }
+.balance .grow { flex: 1 1 120px; }
+.balance .ic { width: 44px; height: 44px; }
+.balance .sum { font-size: 24px !important; }
+.balance .sum span { display: block; margin-left: 0; }
+.balance > .btn { flex: 1 1 100%; }
+.row2, .stats, .pk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tile, .cat-tabs button { min-width: 0; overflow-wrap: anywhere; line-height: 1.4; }
+.tile { padding: 14px 10px; gap: 8px; flex-direction: column; align-items: flex-start; font-size: 14px; }
+.tile svg, .btn svg { flex: none; width: 22px; height: 22px; }
+.search input, .inline .inp { min-width: 0; width: 0; }
+.inline { flex-wrap: wrap; }
+.inline .inp { flex: 1 1 130px; }
+.inline .btn { flex: 0 1 auto; }
+.pk { flex-direction: column; align-items: flex-start; }
+.pk .grow { width: 100%; }
+.pk .pn { display: block; overflow: visible; overflow-wrap: anywhere; }
+.pk .pp { overflow-wrap: anywhere; }
+.g > span { white-space: normal; overflow: visible; overflow-wrap: anywhere; line-height: 1.4; }
+.g .cv .hot { white-space: nowrap; }
+.seg button.on, .chip.on, .cat-tabs button.on { color: var(--on-primary); }
+.hint code, .li .s, .pill, .sheet h3 { overflow-wrap: anywhere; }
+.sumrow { gap: 12px; flex-wrap: wrap; }
+.sheet { max-height: 88dvh; }
+.rate { flex-wrap: wrap; }
+.rate .stars { margin-left: auto; }
+@media (min-width: 480px) {
+  .balance > .btn { flex: 0 1 auto; }
+  .pk { flex-direction: row; align-items: center; }
+}

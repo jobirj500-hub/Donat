@@ -1,4 +1,4 @@
-import './scene.js?v=1';
+import './scene.js?v=2';
 import { searchGames, searchProducts } from './search.js?v=2';
 const tg = window.Telegram?.WebApp;
 try { tg?.ready(); tg?.expand(); } catch {}
@@ -68,9 +68,9 @@ const spinner = () => '<div class="spin"></div>';
 
 // ---------- nav ----------
 function renderNav(active) {
-  const items = [['#/', I.home, 'Asosiy'], ['#/games', I.games, 'O‘yinlar'], ['#/topup', I.wallet, 'To‘ldirish'], ['#/orders', I.clock, 'Buyurtmalar'], ['#/profile', I.user, 'Profil']];
+  const items = [['#/', I.home, 'Asosiy'], ['#/games', I.games, 'O‘yinlar'], ['#/topup', I.wallet, 'Hamyon'], ['#/orders', I.clock, 'Tarix'], ['#/profile', I.user, 'Profil']];
   if (state.me?.isAdmin) items.push(['#/admin', I.gear, 'Admin']);
-  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}">${i}${t}</a>`).join('');
+  $nav.innerHTML = items.map(([href, i, t]) => `<a href="${href}" class="${active === href ? 'on' : ''}">${i}<span>${t}</span></a>`).join('');
 }
 
 // ---------- sheet ----------
