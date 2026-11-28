@@ -43,8 +43,8 @@ export async function createTopup(userId, amount, dataUrl) {
   const markup = {
     inline_keyboard: [
       [
-        { text: 'Tasdiqlash', callback_data: `tp:ok:${id}` },
-        { text: 'Rad etish', callback_data: `tp:no:${id}` },
+        { text: '✅ Tasdiqlash', callback_data: `tp:ok:${id}` },
+        { text: '❌ Rad etish', callback_data: `tp:no:${id}` },
       ],
     ],
   };

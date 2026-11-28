@@ -5,7 +5,7 @@ try { tg?.ready(); tg?.expand(); } catch {}
 // ---------- theme (default: light, like PayerPin) ----------
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
-  const c = t === 'dark' ? '#2a1419' : '#fbf1f4';
+  const c = '#16150f';
   try { tg?.setHeaderColor?.(c); tg?.setBackgroundColor?.(c); tg?.setBottomBarColor?.(c); } catch {}
 }
 let theme = (() => { try { return localStorage.getItem('theme') || 'light'; } catch { return 'light'; } })();

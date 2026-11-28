@@ -34,12 +34,12 @@ const webAppUrl = (path = '') => `${env.PUBLIC_URL}/app${path}`;
 function startKeyboard() {
   const rows = [];
   if (env.PUBLIC_URL.startsWith('https://'))
-    rows.push([{ text: 'Xaridni boshlash', web_app: { url: webAppUrl() } }]);
+    rows.push([{ text: '🪂 UC OLISH — JANGGA!', web_app: { url: webAppUrl() } }]);
   const row2 = [];
   const ch = getSetting('channel_url');
   const sp = getSetting('support_url');
-  if (ch) row2.push({ text: 'Bizning kanal', url: ch });
-  if (sp) row2.push({ text: 'Yordam', url: sp });
+  if (ch) row2.push({ text: '📢 Shtab kanali', url: ch });
+  if (sp) row2.push({ text: '🎧 Radio aloqa', url: sp });
   if (row2.length) rows.push(row2);
   return { inline_keyboard: rows };
 }
@@ -47,7 +47,7 @@ function startKeyboard() {
 async function sendStart(chatId, user) {
   const name = esc(user.first_name || user.username || 'do‘st');
   const caption = getSetting('welcome_text').replace(/\{name\}/g, `<b>${name}</b>`);
-  const photo = getSetting('welcome_photo') || (env.PUBLIC_URL ? `${env.PUBLIC_URL}/logo.jpg` : '');
+  const photo = getSetting('welcome_photo') || (env.PUBLIC_URL ? `${env.PUBLIC_URL}/app/pubg-hero.jpg` : '');
   const reply_markup = startKeyboard();
   const sent = photo
     ? await tg('sendPhoto', { chat_id: chatId, photo, caption, parse_mode: 'HTML', reply_markup })
@@ -80,7 +80,7 @@ async function onMessage(msg) {
     }
     if (/^\/admin/.test(text)) {
       return send(from.id, 'Admin panel:', {
-        reply_markup: { inline_keyboard: [[{ text: 'Admin panelni ochish', web_app: { url: webAppUrl('#/admin') } }]] },
+        reply_markup: { inline_keyboard: [[{ text: '🎖 Qo‘mondonlik paneli', web_app: { url: webAppUrl('#/admin') } }]] },
       });
     }
   }
@@ -132,7 +132,7 @@ export async function startBot() {
   for (const id of adminIds()) await setAdminCommands(id);
 
   if (env.PUBLIC_URL.startsWith('https://')) {
-    await tg('setChatMenuButton', { menu_button: { type: 'web_app', text: 'Menyu', web_app: { url: webAppUrl() } } });
+    await tg('setChatMenuButton', { menu_button: { type: 'web_app', text: '🎯 Lobbi', web_app: { url: webAppUrl() } } });
     // Webhook: Telegram xabarlarni o'zi serverga yuboradi — osilib qoladigan polling yo'q
     await ensureWebhook(true);
     setInterval(() => ensureWebhook().catch(() => {}), 5 * 60 * 1000).unref();

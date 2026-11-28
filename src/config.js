@@ -28,7 +28,7 @@ export const DEFAULT_SETTINGS = {
   card_bank: '',
   channel_url: '',
   support_url: '',
-  welcome_text: 'Xush kelibsiz, {name}! \nO‘yinlarga tez va xavfsiz donat qilish uchun «Xaridni boshlash» tugmasini bosing.',
+  welcome_text: '🪖 Salom, jangchi {name}!\n\n🎯 PUBG UC, olmos va Stars — tez, arzon va xavfsiz.\n⚡ Yetkazish 1–5 daqiqa.\n\n🪂 Boshlash uchun «UC OLISH — JANGGA!» tugmasini bosing. Winner winner chicken dinner! 🍗',
   banner_title: 'O‘yinlarga donat — rasmiy va tezkor',
   banner_subtitle: 'Tez yetkazish • 100% xavfsiz • 24/7 yordam',
   welcome_photo: '',

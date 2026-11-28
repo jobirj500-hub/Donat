@@ -1,0 +1,75 @@
+/* ===== PUBG uslubi: qorong‘i harbiy fon, oltin-sariq urg‘u, kesik burchaklar ===== */
+:root:root, :root:root[data-theme="dark"], :root:root[data-theme="light"] {
+  --bg: oklch(0.16 0.012 95); --bg-2: oklch(0.19 0.014 95);
+  --card: oklch(0.21 0.015 100 / .92); --card-2: oklch(0.26 0.02 105);
+  --line: oklch(0.36 0.03 100); --text: oklch(0.94 0.02 90); --muted: oklch(0.7 0.03 95);
+  --primary: oklch(0.8 0.16 78); --primary-2: oklch(0.74 0.16 70);
+  --primary-soft: oklch(0.8 0.16 78 / .14); --accent-t: oklch(0.82 0.16 80);
+  --grad: linear-gradient(180deg, oklch(0.88 0.15 85), oklch(0.74 0.16 70));
+  --pay-grad: linear-gradient(135deg, oklch(0.3 0.04 110), oklch(0.2 0.015 95));
+  --pay-text: oklch(0.94 0.02 90);
+  --shadow: 0 8px 24px -12px oklch(0 0 0 / .8);
+  --shadow-btn: 0 0 22px -6px oklch(0.8 0.16 78 / .7);
+  --glass: oklch(0.18 0.012 95 / .9); --overlay: oklch(0 0 0 / .65); --hero-fade: oklch(0.16 0.012 95);
+  --ok: oklch(0.72 0.17 145); --bad: oklch(0.62 0.22 27); --warn: oklch(0.75 0.16 60); --gold: oklch(0.82 0.16 80);
+  --star-off: oklch(0.35 0.02 100);
+  --r: 4px;
+  --cut: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  --cut-s: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  color-scheme: dark;
+}
+html, body { font-family: 'Rajdhani', system-ui, sans-serif !important; font-weight: 600; }
+html {
+  background:
+    repeating-linear-gradient(45deg, oklch(1 0 0 / .025) 0 2px, transparent 2px 14px),
+    radial-gradient(ellipse at top, oklch(0.25 0.03 90), var(--bg) 65%) fixed !important;
+}
+.scene-bg { background-image: url('/app/pubg-hero.jpg') !important; filter: brightness(.3) saturate(1.1) !important; }
+
+/* sarlavhalar va raqamlar — Teko */
+.page-title, .hello b, .balance .sum, .sec h2, .cat-head, .hero h1, .profile h2, .stat b, .pk b, .g > span, .btn, .nav a, .seg button, .label, .badge, .pill, .chip {
+  font-family: 'Teko', sans-serif !important; letter-spacing: .04em; text-transform: uppercase; font-weight: 500 !important;
+}
+.page-title { font-size: 38px !important; line-height: 1; }
+.page-title::before { content: ''; width: 6px; height: 26px; background: var(--primary); flex: none; }
+.balance .sum { font-size: 34px !important; color: var(--primary); }
+.hello b { font-size: 26px !important; }
+
+/* kartalar — kesik burchak + oltin uchliklar */
+.card, .li, .pk, .tile, .g, .stat, .search, .paycard, .sheet, .inp, .field input, .field textarea, .seg, .slide, .chip, .pill, .badge, .toast {
+  border-radius: 0 !important; clip-path: var(--cut-s);
+}
+.card, .tile, .pk, .paycard, .slide { clip-path: var(--cut); position: relative; }
+.card, .tile, .pk, .li, .g, .stat {
+  background: linear-gradient(160deg, oklch(0.25 0.022 105 / .95), oklch(0.18 0.012 95 / .95)) !important;
+  border: 1px solid var(--line) !important;
+}
+.card::after, .tile::after, .pk::after {
+  content: ''; position: absolute; right: 0; bottom: 0; width: 12px; height: 12px;
+  border-right: 2px solid var(--primary); border-bottom: 2px solid var(--primary); pointer-events: none;
+}
+.pk.on, .pk.active, .pk[aria-pressed="true"], .seg button.on, .chip.on { border-color: var(--primary) !important; box-shadow: var(--shadow-btn) !important; }
+.pk b { font-size: 30px !important; color: var(--primary); line-height: 1; }
+
+/* tugmalar — oltin, kesik, harbiy */
+.btn { border-radius: 0 !important; clip-path: var(--cut-s); font-size: 22px !important; line-height: 1; min-height: 48px; }
+.btn-primary, .btn:not(.btn-ghost):not(.btn-bad):not(.btn-ok) { background: var(--grad) !important; color: oklch(0.16 0.012 95) !important; box-shadow: var(--shadow-btn) !important; }
+.btn-ghost { background: oklch(0.3 0.03 115) !important; color: var(--text) !important; border: 1px solid var(--line) !important; }
+.btn-bad { background: var(--bad) !important; color: oklch(0.98 0 0) !important; }
+.btn-ok { background: var(--ok) !important; color: oklch(0.16 0.012 95) !important; }
+.btn:active { transform: scale(.97); }
+.rbtn, .back, .avatar { border-radius: 0 !important; clip-path: var(--cut-s); background: var(--card-2) !important; border: 1px solid var(--line); }
+.avatar { background: var(--grad) !important; color: oklch(0.16 0.012 95) !important; }
+
+/* pastki menyu */
+.nav { background: oklch(0.14 0.01 95 / .96) !important; border-top: 2px solid oklch(0.8 0.16 78 / .45) !important; border-radius: 0 !important; clip-path: none !important; }
+.nav a { font-size: 17px !important; color: var(--muted) !important; }
+.nav a.on { color: var(--primary) !important; }
+.nav a.on svg { filter: drop-shadow(0 0 6px oklch(0.8 0.16 78 / .8)); }
+
+/* maydonlar */
+.inp, .field input, .field textarea, .search input { background: oklch(0.14 0.01 95) !important; border: 1px solid var(--line) !important; color: var(--text) !important; }
+.inp:focus, .field input:focus, .search:focus-within { border-color: var(--primary) !important; outline: none; }
+
+.toast { background: oklch(0.14 0.01 95) !important; border: 1px solid var(--primary) !important; color: var(--text) !important; }
+.hero, .slide { border-bottom: 2px solid var(--primary); }
